@@ -29,6 +29,8 @@ namespace CE_MagazineFed
         public static readonly Texture2D MagDrum = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Drum", false) ?? BaseContent.BadTex;
         public static readonly Texture2D TubeShotgun = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Tube_Shotgun", false) ?? BaseContent.BadTex;
         public static readonly Texture2D HeaderBanner = ContentFinder<Texture2D>.Get("UI/Backgrounds/CEMF_HeaderBanner", false) ?? BaseContent.BadTex;
+        public static readonly Texture2D UnloadMagIcon = ContentFinder<Texture2D>.Get("UI/Buttons/CE_AutoLoader_Drop", false) ?? ManageMags;
+        public static readonly Texture2D RecycleEmptyIcon = ContentFinder<Texture2D>.Get("UI/Designators/Deconstruct", false) ?? ManageMags;
 
         public static readonly Texture2D SolidWhite = SolidColorMaterials.NewSolidColorTexture(Color.white);
         public static readonly Texture2D DarkPanelBg = SolidColorMaterials.NewSolidColorTexture(new Color(0.11f, 0.12f, 0.13f, 0.97f));

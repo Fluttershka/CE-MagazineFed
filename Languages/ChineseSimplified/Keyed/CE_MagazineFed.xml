@@ -13,7 +13,11 @@
   <CEMF_Settings_TicksPerRound>闲时压弹耗时（每发）：{0} 秒</CEMF_Settings_TicksPerRound>
   <CEMF_Settings_FieldPackMult>战斗现场压弹耗时倍率：{0}x</CEMF_Settings_FieldPackMult>
   <CEMF_Settings_AutoProvision>自动免费配发空弹匣（按小人方案补足）</CEMF_Settings_AutoProvision>
+  <CEMF_Settings_PreferRecycleMapMags>缺弹匣时优先捡取地面/仓库中的兼容现成弹匣（无现成弹匣再配发新的）</CEMF_Settings_PreferRecycleMapMags>
   <CEMF_Settings_FetchFromStockpile>闲时压弹背包子弹不足时自动去储藏区取弹</CEMF_Settings_FetchFromStockpile>
+  <CEMF_Settings_AutoCleanupEmptyMags>自动清理地面/仓库中的无主空弹匣</CEMF_Settings_AutoCleanupEmptyMags>
+  <CEMF_Settings_EmptyCleanupSeconds>无主空弹匣自动清理延迟：{0} 秒</CEMF_Settings_EmptyCleanupSeconds>
+  <CEMF_Settings_DestroyShellOnUnload>清空弹匣为散弹后自动回收销毁空弹匣壳</CEMF_Settings_DestroyShellOnUnload>
   <CEMF_Settings_ShowMultiColorBar>在武器弹药状态栏显示混装弹种色带</CEMF_Settings_ShowMultiColorBar>
 
   <!-- Magazine Thing / Stats / Float Menus -->
@@ -26,6 +30,11 @@
   <CEMF_StatsReport_MagContents>弹匣壳体与内置弹药</CEMF_StatsReport_MagContents>
   <CEMF_UnloadMagazine>清空弹匣为散弹 ({0})</CEMF_UnloadMagazine>
   <CEMF_CannotUnloadEmpty>弹匣已空</CEMF_CannotUnloadEmpty>
+  <CEMF_MagMarkedForUnload>状态：已标记等待退弹</CEMF_MagMarkedForUnload>
+  <CEMF_Gizmo_MarkUnloadLabel>标记退弹</CEMF_Gizmo_MarkUnloadLabel>
+  <CEMF_Gizmo_MarkUnloadDesc>标记选中的所有有弹弹匣，由殖民者在搬运工作时批量清空为散装子弹（支持框选多个弹匣一键批量标记）。</CEMF_Gizmo_MarkUnloadDesc>
+  <CEMF_Gizmo_RecycleEmptyLabel>清理空弹匣</CEMF_Gizmo_RecycleEmptyLabel>
+  <CEMF_Gizmo_RecycleEmptyDesc>立即清理回收选中的空弹匣壳（支持框选多个空弹匣一键清理）。</CEMF_Gizmo_RecycleEmptyDesc>
 
   <!-- Gizmos & Reload Menu -->
   <CEMF_Gizmo_ManageLabel>弹匣方案</CEMF_Gizmo_ManageLabel>

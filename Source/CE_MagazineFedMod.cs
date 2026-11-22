@@ -30,11 +30,16 @@ namespace CE_MagazineFed
         public float secondsPerRoundIdle = 0.15f;
         public float fieldPackTimeMultiplier = 2.0f;
         public bool autoProvisionEmptyMags = true;
+        public bool preferRecycleMapMagazines = true;
         public bool fetchAmmoFromStockpile = true;
+        public bool autoCleanupEmptyGroundMags = true;
+        public float emptyMagCleanupSeconds = 15f;
+        public bool destroyShellOnUnload = true;
         public bool showMultiColorGizmoBar = true;
 
         public int TicksPerRoundIdle => Mathf.Max(2, Mathf.RoundToInt(secondsPerRoundIdle * 60f));
         public int TicksPerRoundField => Mathf.Max(4, Mathf.RoundToInt(secondsPerRoundIdle * fieldPackTimeMultiplier * 60f));
+        public int EmptyMagCleanupTicks => Mathf.Max(60, Mathf.RoundToInt(emptyMagCleanupSeconds * 60f));
 
         public override void ExposeData()
         {
@@ -45,7 +50,11 @@ namespace CE_MagazineFed
             Scribe_Values.Look(ref secondsPerRoundIdle, "secondsPerRoundIdle", 0.15f);
             Scribe_Values.Look(ref fieldPackTimeMultiplier, "fieldPackTimeMultiplier", 2.0f);
             Scribe_Values.Look(ref autoProvisionEmptyMags, "autoProvisionEmptyMags", true);
+            Scribe_Values.Look(ref preferRecycleMapMagazines, "preferRecycleMapMagazines", true);
             Scribe_Values.Look(ref fetchAmmoFromStockpile, "fetchAmmoFromStockpile", true);
+            Scribe_Values.Look(ref autoCleanupEmptyGroundMags, "autoCleanupEmptyGroundMags", true);
+            Scribe_Values.Look(ref emptyMagCleanupSeconds, "emptyMagCleanupSeconds", 15f);
+            Scribe_Values.Look(ref destroyShellOnUnload, "destroyShellOnUnload", true);
             Scribe_Values.Look(ref showMultiColorGizmoBar, "showMultiColorGizmoBar", true);
         }
     }
@@ -111,7 +120,15 @@ namespace CE_MagazineFed
 
             listing.Gap(10f);
             listing.CheckboxLabeled("CEMF_Settings_AutoProvision".Translate(), ref Settings.autoProvisionEmptyMags);
+            listing.CheckboxLabeled("CEMF_Settings_PreferRecycleMapMags".Translate(), ref Settings.preferRecycleMapMagazines);
             listing.CheckboxLabeled("CEMF_Settings_FetchFromStockpile".Translate(), ref Settings.fetchAmmoFromStockpile);
+            listing.CheckboxLabeled("CEMF_Settings_AutoCleanupEmptyMags".Translate(), ref Settings.autoCleanupEmptyGroundMags);
+            if (Settings.autoCleanupEmptyGroundMags)
+            {
+                listing.Label("CEMF_Settings_EmptyCleanupSeconds".Translate(Mathf.RoundToInt(Settings.emptyMagCleanupSeconds)));
+                Settings.emptyMagCleanupSeconds = Mathf.Round(listing.Slider(Settings.emptyMagCleanupSeconds, 3f, 120f));
+            }
+            listing.CheckboxLabeled("CEMF_Settings_DestroyShellOnUnload".Translate(), ref Settings.destroyShellOnUnload);
             listing.CheckboxLabeled("CEMF_Settings_ShowMultiColorBar".Translate(), ref Settings.showMultiColorGizmoBar);
 
             listing.End();

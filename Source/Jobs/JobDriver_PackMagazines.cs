@@ -25,6 +25,10 @@ namespace CE_MagazineFed
         private int pickupTripsDone;
         private const int MaxPickupTrips = 10;
 
+        private Thing_CEMagazine currentPickupMag;
+        private int magPickupTripsDone;
+        private const int MaxMagPickupTrips = 8;
+
         private Thing_CEMagazine currentPackingMag;
         private AmmoPlan currentPackingPlan;
         private int totalRoundsToPackEstimate = 1;
@@ -34,11 +38,51 @@ namespace CE_MagazineFed
 
         public override string GetReport()
         {
+            if (currentPickupMag != null && !currentPickupMag.Destroyed)
+            {
+                return $"{"CEMF_Mote_PackingMag".Translate()} ({currentPickupMag.LabelShort})";
+            }
             if (currentPickupThing != null && !currentPickupThing.Destroyed)
             {
                 return $"{"CEMF_Mote_PackingMag".Translate()} ({currentPickupThing.LabelShort})";
             }
             return "CEMF_Mote_PackingMag".Translate();
+        }
+
+        private bool FindNextMapMagazineToRecycle(out Thing_CEMagazine mapMag)
+        {
+            mapMag = null;
+            if (!(CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true)) return false;
+            if (magPickupTripsDone >= MaxMagPickupTrips) return false;
+            if (pawn.Map == null) return false;
+
+            var mgr = GameComponent_MagazineManager.Instance;
+            if (mgr == null) return false;
+
+            var weapons = MagazineUtility.GetManagedWeapons(pawn);
+            var checkedConfigs = new HashSet<PawnWeaponAmmoConfig>();
+
+            for (int w = 0; w < weapons.Count; w++)
+            {
+                var ca = weapons[w].TryGetComp<CompAmmoUser>();
+                if (!MagazineUtility.IsMagazineFedWeapon(ca)) continue;
+
+                var cfg = mgr.GetOrCreateConfig(pawn, ca);
+                if (cfg == null || !checkedConfigs.Add(cfg)) continue;
+
+                var invMags = MagazineUtility.GetMagazinesInInventory(pawn, cfg.ammoSet, cfg.capacity);
+                var cm = weapons[w].TryGetComp<CompWeaponMagazine>();
+                int inGun = (cm != null && cm.hasInsertedMagazine) ? 1 : 0;
+                if ((invMags.Count + inGun) >= cfg.targetTotalMags) continue;
+
+                var found = GameComponent_MagazineManager.FindBestCompatibleMapMagazine(pawn, cfg.ammoSet, cfg.capacity);
+                if (found != null)
+                {
+                    mapMag = found;
+                    return true;
+                }
+            }
+            return false;
         }
 
         private bool FindNextStockpilePickup(out Thing ammoStack, out int takeCount)
@@ -179,7 +223,7 @@ namespace CE_MagazineFed
         /// either (a) we already have a fuller/matching mag in inventory to swap in, or (b) we have loose ammo
         /// (in inventory or colony) to repack it.
         /// </summary>
-        private void PrepareInsertedMagazinesForPacking()
+        private void PrepareInsertedMagazinesForPacking(bool allowCreateNewMags)
         {
             var mgr = GameComponent_MagazineManager.Instance;
             if (mgr == null) return;
@@ -193,7 +237,7 @@ namespace CE_MagazineFed
                 var cfg = mgr.GetOrCreateConfig(pawn, ca);
                 if (cfg == null) continue;
 
-                mgr.EnsureMagazinesForConfig(pawn, cfg);
+                mgr.EnsureMagazinesForConfig(pawn, cfg, allowCreateNewMags);
 
                 var cm = weapons[i].TryGetComp<CompWeaponMagazine>();
                 if (cm == null || !cm.hasInsertedMagazine) continue;
@@ -217,7 +261,7 @@ namespace CE_MagazineFed
                 var ca = weapons[i].TryGetComp<CompAmmoUser>();
                 if (!MagazineUtility.IsMagazineFedWeapon(ca)) continue;
                 var cfg = mgr.GetOrCreateConfig(pawn, ca);
-                if (cfg != null) mgr.EnsureMagazinesForConfig(pawn, cfg);
+                if (cfg != null) mgr.EnsureMagazinesForConfig(pawn, cfg, allowCreateNewMags);
             }
         }
 
@@ -342,13 +386,80 @@ namespace CE_MagazineFed
                 ReinsertBestMagazinesIntoWeapons();
             });
 
-            // Phase 1: Provision empty mags & prepare mismatched inserted mags
+            // Phase 1: Normalize existing mags (without creating free mags yet) and recycle compatible map mags FIRST
+            Toil initCountersToil = new Toil();
+            initCountersToil.initAction = () =>
+            {
+                pickupTripsDone = 0;
+                magPickupTripsDone = 0;
+                roundsPackedCount = 0;
+            };
+            initCountersToil.defaultCompleteMode = ToilCompleteMode.Instant;
+            yield return initCountersToil;
+
+            Toil findMapMagToil = new Toil();
+            Toil afterRecycleLabel = Toils_General.Label();
+
+            findMapMagToil.initAction = () =>
+            {
+                currentPickupMag = null;
+                if (FindNextMapMagazineToRecycle(out var foundMag))
+                {
+                    currentPickupMag = foundMag;
+                    job.SetTarget(TargetIndex.C, foundMag);
+                    if (!pawn.Reserve(foundMag, job, 1, -1))
+                    {
+                        currentPickupMag = null;
+                        JumpToToil(afterRecycleLabel);
+                    }
+                }
+                else
+                {
+                    JumpToToil(afterRecycleLabel);
+                }
+            };
+            findMapMagToil.defaultCompleteMode = ToilCompleteMode.Instant;
+            yield return findMapMagToil;
+
+            Toil gotoMapMagToil = Toils_Goto.GotoThing(TargetIndex.C, PathEndMode.ClosestTouch)
+                .FailOnDespawnedNullOrForbidden(TargetIndex.C);
+            yield return gotoMapMagToil;
+
+            Toil pickupMapMagToil = new Toil();
+            pickupMapMagToil.initAction = () =>
+            {
+                magPickupTripsDone++;
+                if (currentPickupMag != null && pawn.Map?.reservationManager != null)
+                {
+                    pawn.Map.reservationManager.Release(currentPickupMag, pawn, job);
+                }
+                if (currentPickupMag != null && !currentPickupMag.Destroyed && currentPickupMag.Spawned)
+                {
+                    currentPickupMag.designatedForUnload = false;
+                    currentPickupMag.emptyOnGroundTick = -1;
+                    currentPickupMag.preferredPlanIndex = -1;
+
+                    currentPickupMag.DeSpawn(DestroyMode.Vanish);
+                    if (!pawn.inventory.innerContainer.TryAdd(currentPickupMag, true))
+                    {
+                        GenPlace.TryPlaceThing(currentPickupMag, pawn.Position, pawn.Map, ThingPlaceMode.Near);
+                    }
+                    pawn.TryGetComp<CompInventory>()?.UpdateInventory();
+                }
+                currentPickupMag = null;
+            };
+            pickupMapMagToil.defaultCompleteMode = ToilCompleteMode.Instant;
+            yield return pickupMapMagToil;
+
+            yield return Toils_Jump.JumpIf(findMapMagToil, () => magPickupTripsDone < MaxMagPickupTrips && FindNextMapMagazineToRecycle(out _));
+
+            // Phase 1.5: Now auto-provision any still-missing empty mags & prepare mismatched inserted mags
+            yield return afterRecycleLabel;
+
             Toil initToil = new Toil();
             initToil.initAction = () =>
             {
-                pickupTripsDone = 0;
-                roundsPackedCount = 0;
-                PrepareInsertedMagazinesForPacking();
+                PrepareInsertedMagazinesForPacking(allowCreateNewMags: true);
 
                 // Estimate total rounds to pack for progress bar
                 var mgr = GameComponent_MagazineManager.Instance;

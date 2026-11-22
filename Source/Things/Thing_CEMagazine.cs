@@ -23,6 +23,16 @@ namespace CE_MagazineFed
         /// </summary>
         public int preferredPlanIndex = -1;
 
+        /// <summary>
+        /// If true, hauling colonists will automatically batch-unload this magazine into loose ammo.
+        /// </summary>
+        public bool designatedForUnload = false;
+
+        /// <summary>
+        /// Tick when this empty magazine was first seen unowned on the ground; used for delayed auto-cleanup.
+        /// </summary>
+        public int emptyOnGroundTick = -1;
+
         private Graphic cachedCustomGraphic;
         private int cachedGraphicCapacity = -1;
 
@@ -122,9 +132,58 @@ namespace CE_MagazineFed
                 sb.AppendLine("CEMF_MagInspectNext".Translate(NextRound.LabelCap));
                 var counts = GetAmmoCounts();
                 string breakdown = string.Join(", ", counts.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Value}x {MagazineUtility.GetShortAmmoLabel(kv.Key)}"));
-                sb.Append("CEMF_MagInspectContents".Translate(breakdown));
+                sb.AppendLine("CEMF_MagInspectContents".Translate(breakdown));
+            }
+            if (designatedForUnload && !IsEmpty)
+            {
+                sb.AppendLine("CEMF_MagMarkedForUnload".Translate());
             }
             return sb.ToString().TrimEndNewlines();
+        }
+
+        public override IEnumerable<Gizmo> GetGizmos()
+        {
+            foreach (var g in base.GetGizmos())
+            {
+                yield return g;
+            }
+
+            if (!Spawned) yield break;
+
+            if (!IsEmpty)
+            {
+                yield return new Command_Toggle
+                {
+                    defaultLabel = "CEMF_Gizmo_MarkUnloadLabel".Translate(),
+                    defaultDesc = "CEMF_Gizmo_MarkUnloadDesc".Translate(),
+                    icon = CEMF_Textures.UnloadMagIcon,
+                    isActive = () => designatedForUnload,
+                    toggleAction = () =>
+                    {
+                        designatedForUnload = !designatedForUnload;
+                        if (designatedForUnload && this.IsForbidden(Faction.OfPlayer))
+                        {
+                            this.SetForbidden(false, false);
+                        }
+                    }
+                };
+            }
+            else
+            {
+                yield return new Command_Action
+                {
+                    defaultLabel = "CEMF_Gizmo_RecycleEmptyLabel".Translate(),
+                    defaultDesc = "CEMF_Gizmo_RecycleEmptyDesc".Translate(),
+                    icon = CEMF_Textures.RecycleEmptyIcon,
+                    action = () =>
+                    {
+                        if (!Destroyed && IsEmpty)
+                        {
+                            Destroy(DestroyMode.Vanish);
+                        }
+                    }
+                };
+            }
         }
 
         public override IEnumerable<FloatMenuOption> GetFloatMenuOptions(Pawn selPawn)
@@ -230,6 +289,8 @@ namespace CE_MagazineFed
             Scribe_Values.Look(ref capacity, "capacity", 30);
             Scribe_Collections.Look(ref rounds, "rounds", LookMode.Def);
             Scribe_Values.Look(ref preferredPlanIndex, "preferredPlanIndex", -1);
+            Scribe_Values.Look(ref designatedForUnload, "designatedForUnload", false);
+            Scribe_Values.Look(ref emptyOnGroundTick, "emptyOnGroundTick", -1);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (rounds == null) rounds = new List<AmmoDef>();

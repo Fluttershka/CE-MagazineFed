@@ -37,7 +37,14 @@ namespace CE_MagazineFed
             Toil finish = new Toil();
             finish.initAction = () =>
             {
-                Magazine?.UnloadAllRounds(null);
+                var mag = Magazine;
+                if (mag == null || mag.Destroyed) return;
+                mag.UnloadAllRounds(null);
+                mag.designatedForUnload = false;
+                if ((CE_MagazineFedMod.Settings?.destroyShellOnUnload ?? true) && mag.IsEmpty && !mag.Destroyed)
+                {
+                    mag.Destroy(DestroyMode.Vanish);
+                }
             };
             finish.defaultCompleteMode = ToilCompleteMode.Instant;
             yield return finish;

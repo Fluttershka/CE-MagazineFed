@@ -245,13 +245,14 @@ namespace CE_MagazineFed
             var mgr = GameComponent_MagazineManager.Instance;
             if (mgr != null)
             {
+                bool preferRecycle = CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true;
                 foreach (var w in MagazineUtility.GetManagedWeapons(pawn))
                 {
                     var ca = w.TryGetComp<CompAmmoUser>();
                     if (MagazineUtility.IsMagazineFedWeapon(ca))
                     {
                         var cfg = mgr.GetOrCreateConfig(pawn, ca);
-                        if (cfg != null) mgr.EnsureMagazinesForConfig(pawn, cfg);
+                        if (cfg != null) mgr.EnsureMagazinesForConfig(pawn, cfg, allowCreateNew: !preferRecycle);
                     }
                 }
             }
@@ -421,7 +422,9 @@ namespace CE_MagazineFed
             {
                 config.targetTotalMags++;
                 config.EnsurePlansMatchCount(compAmmo.CurrentAmmo);
-                mgr.EnsureMagazinesForConfig(selectedPawn, config);
+                bool hasMapMagToRecycle = (CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true)
+                                          && GameComponent_MagazineManager.FindBestCompatibleMapMagazine(selectedPawn, config.ammoSet, config.capacity) != null;
+                mgr.EnsureMagazinesForConfig(selectedPawn, config, allowCreateNew: !hasMapMagToRecycle);
             }
             y += 32f;
 

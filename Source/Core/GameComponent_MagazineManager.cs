@@ -4,6 +4,7 @@ using System.Linq;
 using CombatExtended;
 using RimWorld;
 using Verse;
+using Verse.AI;
 
 namespace CE_MagazineFed
 {
@@ -15,9 +16,95 @@ namespace CE_MagazineFed
 
         public List<AmmoPlanPreset> presets = new List<AmmoPlanPreset>();
 
+        private const int CleanupCheckIntervalTicks = 240;
+
         public static GameComponent_MagazineManager Instance => Current.Game?.GetComponent<GameComponent_MagazineManager>();
 
         public GameComponent_MagazineManager(Game game) { }
+
+        public override void GameComponentTick()
+        {
+            base.GameComponentTick();
+            var settings = CE_MagazineFedMod.Settings;
+            if (settings == null || !settings.autoCleanupEmptyGroundMags) return;
+            if (CEMF_DefOf.CEMF_Magazine == null) return;
+
+            int now = Find.TickManager.TicksGame;
+            if (now % CleanupCheckIntervalTicks != 0) return;
+
+            var maps = Find.Maps;
+            if (maps == null) return;
+            int delayTicks = settings.EmptyMagCleanupTicks;
+
+            for (int m = 0; m < maps.Count; m++)
+            {
+                Map map = maps[m];
+                if (map?.listerThings == null) continue;
+                var mags = map.listerThings.ThingsOfDef(CEMF_DefOf.CEMF_Magazine);
+                if (mags == null || mags.Count == 0) continue;
+
+                // Iterate backwards because we may destroy items
+                for (int i = mags.Count - 1; i >= 0; i--)
+                {
+                    if (!(mags[i] is Thing_CEMagazine mag) || mag.Destroyed || !mag.Spawned) continue;
+                    if (!mag.IsEmpty)
+                    {
+                        mag.emptyOnGroundTick = -1;
+                        continue;
+                    }
+                    // Never destroy an empty mag that someone is actively reserving/walking to pick up
+                    if (map.reservationManager != null && map.reservationManager.IsReserved(mag))
+                    {
+                        mag.emptyOnGroundTick = now;
+                        continue;
+                    }
+                    if (mag.emptyOnGroundTick < 0)
+                    {
+                        mag.emptyOnGroundTick = now;
+                        continue;
+                    }
+                    if (now - mag.emptyOnGroundTick >= delayTicks)
+                    {
+                        mag.Destroy(DestroyMode.Vanish);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Finds the best reachable, unforbidden, reservable compatible magazine on the pawn's map.
+        /// Prioritizes magazines that already contain rounds, then closest distance.
+        /// </summary>
+        public static Thing_CEMagazine FindBestCompatibleMapMagazine(Pawn pawn, AmmoSetDef ammoSet, int capacity)
+        {
+            if (pawn?.Map == null || ammoSet == null || CEMF_DefOf.CEMF_Magazine == null) return null;
+            var compInv = pawn.TryGetComp<CompInventory>();
+            var list = pawn.Map.listerThings.ThingsOfDef(CEMF_DefOf.CEMF_Magazine);
+            if (list == null || list.Count == 0) return null;
+
+            Thing_CEMagazine best = null;
+            float bestScore = float.MinValue;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (!(list[i] is Thing_CEMagazine mag) || mag.Destroyed || !mag.Spawned) continue;
+                if (!mag.Matches(ammoSet, capacity)) continue;
+                if (mag.IsForbidden(pawn) || mag.IsBurning()) continue;
+                if (mag.designatedForUnload) continue; // Don't steal mags the player explicitly marked to unload
+                if (!pawn.CanReserveAndReach(mag, PathEndMode.ClosestTouch, Danger.Some)) continue;
+                if (compInv != null && (!compInv.CanFitInInventory(mag, out int fit) || fit <= 0)) continue;
+
+                float dist = pawn.Position.DistanceTo(mag.Position);
+                // Prefer loaded magazines strongly, then closer ones
+                float score = mag.LoadedCount * 100f - dist;
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = mag;
+                }
+            }
+            return best;
+        }
 
         public PawnAmmoManagementData GetOrCreatePawnData(Pawn pawn)
         {
@@ -69,10 +156,9 @@ namespace CE_MagazineFed
         /// (accounting for any magazine currently inserted in a matching weapon), and removes excess completely empty magazines
         /// if the player reduced targetTotalMags.
         /// </summary>
-        public void EnsureMagazinesForConfig(Pawn pawn, PawnWeaponAmmoConfig config)
+        public void EnsureMagazinesForConfig(Pawn pawn, PawnWeaponAmmoConfig config, bool allowCreateNew = true)
         {
             if (pawn == null || config == null || config.isSingleLoad) return;
-            if (!(CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true)) return;
             if (!MagazineUtility.ShouldUseMagazineSystem(pawn)) return;
 
             config.EnsurePlansMatchCount();
@@ -138,8 +224,8 @@ namespace CE_MagazineFed
                 }
             }
 
-            // Provision missing empty magazines
-            if (totalOwned < config.targetTotalMags)
+            // Provision missing empty magazines (only when allowed & auto-provision setting enabled)
+            if (allowCreateNew && (CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true) && totalOwned < config.targetTotalMags)
             {
                 int needed = config.targetTotalMags - totalOwned;
                 for (int k = 0; k < needed; k++)
@@ -217,12 +303,18 @@ namespace CE_MagazineFed
 
                 if (!config.isSingleLoad)
                 {
-                    // Check if we need empty mags provisioned
+                    // Check if we need magazines (either recycled from map or auto-provisioned)
                     var invMags = MagazineUtility.GetMagazinesInInventory(pawn, config.ammoSet, config.capacity);
                     int inGun = (compMag != null && compMag.hasInsertedMagazine) ? 1 : 0;
-                    if ((CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true) && (invMags.Count + inGun) < config.targetTotalMags)
+                    if ((invMags.Count + inGun) < config.targetTotalMags)
                     {
-                        needsWork = true;
+                        bool canProvision = CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true;
+                        bool canRecycle = (CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true)
+                                          && FindBestCompatibleMapMagazine(pawn, config.ammoSet, config.capacity) != null;
+                        if (canProvision || canRecycle)
+                        {
+                            needsWork = true;
+                        }
                     }
 
                     // Check each inventory mag against its plan

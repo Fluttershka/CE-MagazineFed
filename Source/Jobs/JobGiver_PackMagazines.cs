@@ -97,9 +97,15 @@ namespace CE_MagazineFed
                     var invMags = MagazineUtility.GetMagazinesInInventory(pawn, cfg.ammoSet, cfg.capacity);
                     var cm = weapons[i].TryGetComp<CompWeaponMagazine>();
                     int inGun = (cm != null && cm.hasInsertedMagazine) ? 1 : 0;
-                    if ((CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true) && (invMags.Count + inGun) < cfg.targetTotalMags)
+                    if ((invMags.Count + inGun) < cfg.targetTotalMags)
                     {
-                        return true;
+                        bool canProvision = CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true;
+                        bool canRecycle = (CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true)
+                                          && GameComponent_MagazineManager.FindBestCompatibleMapMagazine(pawn, cfg.ammoSet, cfg.capacity) != null;
+                        if (canProvision || canRecycle)
+                        {
+                            return true;
+                        }
                     }
 
                     // Check if any mag can be packed/reordered using loose ammo already in inventory

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <WorkGiverDef>
+    <defName>CEMF_UnloadMagazines</defName>
+    <label>unload marked magazines</label>
+    <giverClass>CE_MagazineFed.WorkGiver_UnloadMagazines</giverClass>
+    <workType>Hauling</workType>
+    <priorityInType>35</priorityInType>
+    <verb>unload</verb>
+    <gerund>unloading</gerund>
+    <requiredCapacities>
+      <li>Manipulation</li>
+    </requiredCapacities>
+  </WorkGiverDef>
+</Defs>
