@@ -29,7 +29,6 @@
   <CEMF_MagInspectNext>下一发射出：{0}</CEMF_MagInspectNext>
   <CEMF_MagInspectContents>弹种组成：{0}</CEMF_MagInspectContents>
   <CEMF_StatsReport_MagContents>弹匣壳体与内置弹药</CEMF_StatsReport_MagContents>
-  <CEMF_StatsReport_MagFullBulk>弹匣满载固定体积</CEMF_StatsReport_MagFullBulk>
   <CEMF_StatsReport_MagMarketValue>内置弹药价值</CEMF_StatsReport_MagMarketValue>
   <CEMF_UnloadMagazine>清空弹匣为散弹 ({0})</CEMF_UnloadMagazine>
   <CEMF_CannotUnloadEmpty>弹匣已空</CEMF_CannotUnloadEmpty>

@@ -282,18 +282,13 @@ namespace CE_MagazineFed
 
         /// <summary>
         /// Constant full-magazine bulk (independent of current loaded round count).
+        /// Used directly as the Bulk base value via StatWorker.GetBaseValueFor.
         /// </summary>
         public float GetFullMagazineBulk()
         {
             float emptyShellBulk = Mathf.Clamp(0.12f + capacity * 0.009f, 0.15f, 1.8f);
             float fullRoundsBulk = GetCaliberReferenceBulk() * capacity * 0.85f;
             return emptyShellBulk + fullRoundsBulk;
-        }
-
-        public float GetFullBulkDelta()
-        {
-            // Base ThingDef bulk is 0.25f; always return full-magazine bulk delta regardless of current rounds
-            return GetFullMagazineBulk() - 0.25f;
         }
 
         public float GetLoadedRoundsMarketValue()
@@ -342,8 +337,7 @@ namespace CE_MagazineFed
         {
             if (TryGetDelta(req, out float delta) && Mathf.Abs(delta) > 0.0001f)
             {
-                string key = parentStat == CE_StatDefOf.Bulk ? "CEMF_StatsReport_MagFullBulk" : "CEMF_StatsReport_MagContents";
-                return key.Translate() + ": " + parentStat.ValueToString(delta, ToStringNumberSense.Offset);
+                return "CEMF_StatsReport_MagContents".Translate() + ": " + parentStat.ValueToString(delta, ToStringNumberSense.Offset);
             }
             return null;
         }
@@ -356,12 +350,6 @@ namespace CE_MagazineFed
             if (parentStat == StatDefOf.Mass)
             {
                 delta = mag.GetEmptyMassDelta() + mag.GetLoadedRoundsMass();
-                return true;
-            }
-            if (parentStat == CE_StatDefOf.Bulk)
-            {
-                // Magazine bulk is always fixed at full-magazine capacity regardless of loaded rounds
-                delta = mag.GetFullBulkDelta();
                 return true;
             }
             return false;

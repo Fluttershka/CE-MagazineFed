@@ -8,7 +8,7 @@
     </value>
   </Operation>
 
-  <!-- 2. Add StatPart_MagazineMassBulk to Mass and Bulk -->
+  <!-- 2. Add StatPart_MagazineMassBulk to Mass (Bulk base value is set directly via StatWorker.GetBaseValueFor) -->
   <Operation Class="PatchOperationConditional">
     <xpath>Defs/StatDef[defName="Mass"]/parts</xpath>
     <match Class="PatchOperationAdd">
@@ -19,24 +19,6 @@
     </match>
     <nomatch Class="PatchOperationAdd">
       <xpath>Defs/StatDef[defName="Mass"]</xpath>
-      <value>
-        <parts>
-          <li Class="CE_MagazineFed.StatPart_MagazineMassBulk" />
-        </parts>
-      </value>
-    </nomatch>
-  </Operation>
-
-  <Operation Class="PatchOperationConditional">
-    <xpath>Defs/StatDef[defName="Bulk"]/parts</xpath>
-    <match Class="PatchOperationAdd">
-      <xpath>Defs/StatDef[defName="Bulk"]/parts</xpath>
-      <value>
-        <li Class="CE_MagazineFed.StatPart_MagazineMassBulk" />
-      </value>
-    </match>
-    <nomatch Class="PatchOperationAdd">
-      <xpath>Defs/StatDef[defName="Bulk"]</xpath>
       <value>
         <parts>
           <li Class="CE_MagazineFed.StatPart_MagazineMassBulk" />

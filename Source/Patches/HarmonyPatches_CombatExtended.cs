@@ -981,4 +981,20 @@ namespace CE_MagazineFed
             MagazineUtility.PackNpcInventoryIntoMagazines(pawn);
         }
     }
+
+    // =========================================================================
+    // 10. Magazine Bulk base value = fixed full-magazine bulk (no extra offset line)
+    // =========================================================================
+
+    [HarmonyPatch(typeof(StatWorker), nameof(StatWorker.GetBaseValueFor))]
+    public static class Patch_StatWorker_GetBaseValueFor
+    {
+        public static void Postfix(StatDef ___stat, StatRequest request, ref float __result)
+        {
+            if (___stat == CE_StatDefOf.Bulk && request.HasThing && request.Thing is Thing_CEMagazine mag)
+            {
+                __result = mag.GetFullMagazineBulk();
+            }
+        }
+    }
 }
