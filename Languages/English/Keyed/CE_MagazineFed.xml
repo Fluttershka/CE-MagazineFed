@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- General / Mod Settings -->
+  <CEMF_ModName>Combat Extended - Magazine Fed</CEMF_ModName>
+  <CEMF_Settings_FactionScope>Active Faction Scope</CEMF_Settings_FactionScope>
+  <CEMF_Settings_FactionScope_PlayerOnly>Player Colony Pawns Only (Default, Best Compatibility)</CEMF_Settings_FactionScope_PlayerOnly>
+  <CEMF_Settings_FactionScope_AllFactions>All Factions (Including Hostile &amp; Neutral NPCs)</CEMF_Settings_FactionScope_AllFactions>
+  <CEMF_Settings_PackingPriority>Auto-Packing Priority</CEMF_Settings_PackingPriority>
+  <CEMF_Settings_PackingPriority_IdleOnly>Idle Only (Lower than normal work, Default)</CEMF_Settings_PackingPriority_IdleOnly>
+  <CEMF_Settings_PackingPriority_BeforeWork>Before Normal Work (Combat Readiness)</CEMF_Settings_PackingPriority_BeforeWork>
+  <CEMF_Settings_PackingPriority_ManualOnly>Manual Only (Disable automatic packing)</CEMF_Settings_PackingPriority_ManualOnly>
+  <CEMF_Settings_DefaultMagCount>Default Total Magazines per Weapon (incl. inserted): {0}</CEMF_Settings_DefaultMagCount>
+  <CEMF_Settings_TicksPerRound>Idle Packing Time per Round: {0}s</CEMF_Settings_TicksPerRound>
+  <CEMF_Settings_FieldPackMult>Combat Field-Packing Time Multiplier: {0}x</CEMF_Settings_FieldPackMult>
+  <CEMF_Settings_AutoProvision>Auto-provision empty magazines according to pawn plan</CEMF_Settings_AutoProvision>
+  <CEMF_Settings_FetchFromStockpile>Fetch loose ammo from colony stockpiles when inventory is insufficient</CEMF_Settings_FetchFromStockpile>
+  <CEMF_Settings_ShowMultiColorBar>Show mixed-ammo color strip on weapon ammo gizmo</CEMF_Settings_ShowMultiColorBar>
+
+  <!-- Magazine Thing / Stats / Float Menus -->
+  <CEMF_MagLabelFormat>{0} magazine ({1}/{2})</CEMF_MagLabelFormat>
+  <CEMF_MagEmpty>empty</CEMF_MagEmpty>
+  <CEMF_MagInspectCaliber>Caliber: {0}</CEMF_MagInspectCaliber>
+  <CEMF_MagInspectLoaded>Loaded: {0} / {1}</CEMF_MagInspectLoaded>
+  <CEMF_MagInspectNext>Next round: {0}</CEMF_MagInspectNext>
+  <CEMF_MagInspectContents>Contents: {0}</CEMF_MagInspectContents>
+  <CEMF_StatsReport_MagContents>Magazine body and loaded rounds</CEMF_StatsReport_MagContents>
+  <CEMF_UnloadMagazine>Unload magazine into loose ammo ({0})</CEMF_UnloadMagazine>
+  <CEMF_CannotUnloadEmpty>Magazine is empty</CEMF_CannotUnloadEmpty>
+
+  <!-- Gizmos & Reload Menu -->
+  <CEMF_Gizmo_ManageLabel>Magazines</CEMF_Gizmo_ManageLabel>
+  <CEMF_Gizmo_ManageDesc>Open the Magazine &amp; Ammo Loadout Manager to configure magazine counts and mixed-ammo round order for this colonist.</CEMF_Gizmo_ManageDesc>
+  <CEMF_Menu_OpenManager>Manage Magazine / Ammo Plans...</CEMF_Menu_OpenManager>
+  <CEMF_Menu_InsertMag>Insert Mag #{0} ({1}/{2}) {3}</CEMF_Menu_InsertMag>
+  <CEMF_Menu_InsertLooseMag>Insert Mag ({0}/{1}) {2}</CEMF_Menu_InsertLooseMag>
+  <CEMF_Menu_EjectMag>Eject Current Magazine</CEMF_Menu_EjectMag>
+  <CEMF_Menu_FieldPack>Field-pack magazine and reload (no loaded mag)</CEMF_Menu_FieldPack>
+  <CEMF_Menu_NoMagOrAmmo>No loaded magazines or loose ammo</CEMF_Menu_NoMagOrAmmo>
+  <CEMF_Mote_SwappingMag>Swapping magazine...</CEMF_Mote_SwappingMag>
+  <CEMF_Mote_FieldPacking>Field-packing magazine...</CEMF_Mote_FieldPacking>
+  <CEMF_Mote_PackingMag>Packing magazines...</CEMF_Mote_PackingMag>
+  <CEMF_Gizmo_NextRound>Next round: {0}</CEMF_Gizmo_NextRound>
+  <CEMF_Gizmo_SpareMags>Spare mags: {0} loaded ({1} rounds total)</CEMF_Gizmo_SpareMags>
+  <CEMF_Gizmo_SingleLoadPlan>Single-load plan active (Next: {0})</CEMF_Gizmo_SingleLoadPlan>
+
+  <!-- Window_MagazineManager -->
+  <CEMF_UI_Title>CE Magazine &amp; Mixed-Ammo Manager</CEMF_UI_Title>
+  <CEMF_UI_Colonists>Colonists</CEMF_UI_Colonists>
+  <CEMF_UI_NoWeapon>No magazine-fed or multi-round single-load weapon equipped/carried.</CEMF_UI_NoWeapon>
+  <CEMF_UI_Mode_MagFed>Mag-Fed</CEMF_UI_Mode_MagFed>
+  <CEMF_UI_Mode_SingleLoad>Single-Load Tube</CEMF_UI_Mode_SingleLoad>
+  <CEMF_UI_PackNow>Pack Now</CEMF_UI_PackNow>
+  <CEMF_UI_PackNowTip>Immediately order this colonist to pack and organize magazines according to their plan.</CEMF_UI_PackNowTip>
+  <CEMF_UI_PackNowOrdered>Ordered {0} to pack magazines now.</CEMF_UI_PackNowOrdered>
+  <CEMF_UI_PackNowNotNeeded>{0}'s magazines already match the plan or no loose ammo is available.</CEMF_UI_PackNowNotNeeded>
+  <CEMF_UI_TotalMags>Total Magazines (incl. inserted):</CEMF_UI_TotalMags>
+  <CEMF_UI_SparePreview>1 in gun + {0} spare in bag | Est. {1} kg / {2} bulk</CEMF_UI_SparePreview>
+  <CEMF_UI_MagSlotLabel>Mag #{0}</CEMF_UI_MagSlotLabel>
+  <CEMF_UI_MagInGun>In Gun</CEMF_UI_MagInGun>
+  <CEMF_UI_MagInBag>In Bag</CEMF_UI_MagInBag>
+  <CEMF_UI_MagReady>Ready</CEMF_UI_MagReady>
+  <CEMF_UI_MagNeedPack>Needs Pack ({0}/{1})</CEMF_UI_MagNeedPack>
+  <CEMF_UI_MagMismatch>Order Mismatch ({0}/{1})</CEMF_UI_MagMismatch>
+  <CEMF_UI_MagMissing>Pending</CEMF_UI_MagMissing>
+  <CEMF_UI_SyncToAllMags>Apply This Plan to All Mags</CEMF_UI_SyncToAllMags>
+  <CEMF_UI_CopyPlan>Copy</CEMF_UI_CopyPlan>
+  <CEMF_UI_PastePlan>Paste</CEMF_UI_PastePlan>
+  <CEMF_UI_SingleLoadHeader>Single-Round Loading Mode</CEMF_UI_SingleLoadHeader>
+  <CEMF_UI_SingleLoadDesc>This weapon (e.g. pump shotgun, revolver, internal tube) loads loose rounds one at a time without detachable magazines, following the exact firing order configured below.</CEMF_UI_SingleLoadDesc>
+  <CEMF_UI_SingleLoadCurrent>Currently Loaded: {0} / {1}</CEMF_UI_SingleLoadCurrent>
+  <CEMF_UI_AmmoPalette>Available Ammo Types (Click to select brush)</CEMF_UI_AmmoPalette>
+  <CEMF_UI_StockInfo>Bag:{0}  Colony:{1}</CEMF_UI_StockInfo>
+  <CEMF_UI_SequenceHeader>Firing Order Layout (Slot 1 = Fires First → Slot {0} = Fires Last)</CEMF_UI_SequenceHeader>
+  <CEMF_UI_SequenceHint>Left-click/drag to paint selected ammo | Right-click to cycle ammo type</CEMF_UI_SequenceHint>
+  <CEMF_UI_ActualBar>Actual Loaded:</CEMF_UI_ActualBar>
+  <CEMF_UI_PlanBar>Planned Order:</CEMF_UI_PlanBar>
+  <CEMF_UI_FillAll>Fill All with Selected</CEMF_UI_FillAll>
+  <CEMF_UI_ReverseOrder>Reverse Order</CEMF_UI_ReverseOrder>
+  <CEMF_UI_Presets>Presets</CEMF_UI_Presets>
+  <CEMF_UI_SavePreset>Save Preset</CEMF_UI_SavePreset>
+  <CEMF_UI_LoadPreset>Load Preset</CEMF_UI_LoadPreset>
+  <CEMF_UI_NoPresets>No saved presets for this caliber</CEMF_UI_NoPresets>
+  <CEMF_UI_DeletePreset>Del</CEMF_UI_DeletePreset>
+  <CEMF_UI_PresetSaved>Preset saved: {0}</CEMF_UI_PresetSaved>
+  <CEMF_UI_SegmentBuilder>Quick Segment / Cyclic Pattern Builder</CEMF_UI_SegmentBuilder>
+  <CEMF_UI_AddSegment>+ Add Block</CEMF_UI_AddSegment>
+  <CEMF_UI_ClearSegments>Clear</CEMF_UI_ClearSegments>
+  <CEMF_UI_ApplySequential>Apply Sequential</CEMF_UI_ApplySequential>
+  <CEMF_UI_ApplyCyclic>Fill Cyclic Pattern</CEMF_UI_ApplyCyclic>
+  <CEMF_UI_SlotTooltip>Shot #{0} (Firing Order)\nPlanned: {1}\nCurrently Loaded: {2}</CEMF_UI_SlotTooltip>
+  <CEMF_UI_EmptySlot>(Empty)</CEMF_UI_EmptySlot>
+  <CEMF_UI_EnterPresetName>Enter preset name:</CEMF_UI_EnterPresetName>
+  <CEMF_UI_Confirm>OK</CEMF_UI_Confirm>
+  <CEMF_UI_Cancel>Cancel</CEMF_UI_Cancel>
+  <CEMF_UI_InventoryButton>Manage Magazines</CEMF_UI_InventoryButton>
+  <CEMF_UI_SummaryNeed>Total ammo needed for all plans: {0}</CEMF_UI_SummaryNeed>
+</LanguageData>

@@ -1,0 +1,16 @@
+# Build artifacts
+Source/bin/
+Source/obj/
+*.user
+*.suo
+.vs/
+
+# Raw intermediate image generation files
+ArtRaw/
+ArtRaw_V2/
+*.stdout.txt
+*.stderr.txt
+
+# OS files
+Thumbs.db
+.DS_Store

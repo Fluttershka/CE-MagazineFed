@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Combat Extended - Magazine Fed (弹匣供弹)</name>
+  <author>kuwa</author>
+  <packageId>kuwa.ce.magazinefed</packageId>
+  <modVersion>1.0.0</modVersion>
+  <modIconPath IgnoreIfNoMatchingField="True">UI/Buttons/CEMF_ManageMags</modIconPath>
+  <supportedVersions>
+    <li>1.6</li>
+    <li>1.7</li>
+  </supportedVersions>
+  <description>为 Combat Extended 增加完整的实体弹匣供弹与混装弹种编排系统。
+
+【核心特性】
+1. 实体弹匣供弹：弹匣供弹武器需通过背包中的实体弹匣换弹（按口径与容量通用），战术换弹自动保留半满弹匣及其余弹顺序；无满弹匣时需先现场慢速压弹，禁止散弹直装。
+2. 同弹匣自由混装：同一弹匣可混装同口径不同弹种（如穿甲弹、普通弹、曳光弹、高爆弹），支持逐发绘制、分段编排、循环交错（如 3:1 穿甲/曳光）及预设库复用。
+3. 独立可视化管理界面：按殖民者单独管理携带弹匣数量与每个弹匣的子弹顺序，实时对比目标方案与当前装填状态。
+4. 闲时自动压弹：小人在闲暇时自动按方案整理与压填弹匣（优先使用背包散弹，不足自动前往储藏区取弹）。
+5. 单发装填弹仓支持：泵动霰弹枪、转轮、内置弹仓等逐发装填武器仍使用散弹装填，并提供一致的弹种顺序编排界面。
+6. 灵活设置：可在模组设置中切换仅玩家殖民地或全阵营（含敌方 NPC）启用，并调整压弹速度与优先级。
+
+---
+Adds a full physical magazine-fed reloading and mixed-ammo arrangement system for Combat Extended, including per-pawn magazine management UI, idle auto-packing, and tube/internal-magazine ammo ordering for single-load weapons.</description>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+      <downloadUrl>https://github.com/pardeike/HarmonyRimWorld/releases/latest</downloadUrl>
+    </li>
+    <li>
+      <packageId>CETeam.CombatExtended</packageId>
+      <displayName>Combat Extended</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2890901044</steamWorkshopUrl>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>brrainz.harmony</li>
+    <li>CETeam.CombatExtended</li>
+  </loadAfter>
+</ModMetaData>

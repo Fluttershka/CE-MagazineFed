@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <JobDef>
+    <defName>CEMF_ReloadMagazine</defName>
+    <driverClass>CE_MagazineFed.JobDriver_ReloadMagazine</driverClass>
+    <reportString>reloading TargetB with magazine.</reportString>
+    <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
+  </JobDef>
+
+  <JobDef>
+    <defName>CEMF_FieldPackAndReload</defName>
+    <driverClass>CE_MagazineFed.JobDriver_FieldPackAndReload</driverClass>
+    <reportString>hand-packing magazine for TargetB.</reportString>
+    <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
+  </JobDef>
+
+  <JobDef>
+    <defName>CEMF_PackMagazines</defName>
+    <driverClass>CE_MagazineFed.JobDriver_PackMagazines</driverClass>
+    <reportString>packing magazines.</reportString>
+    <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
+  </JobDef>
+
+  <JobDef>
+    <defName>CEMF_UnloadMagazine</defName>
+    <driverClass>CE_MagazineFed.JobDriver_UnloadMagazine</driverClass>
+    <reportString>unloading TargetA.</reportString>
+    <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
+  </JobDef>
+</Defs>

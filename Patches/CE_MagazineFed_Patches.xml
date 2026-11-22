@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <!-- 1. Add CompWeaponMagazine to all ThingDefs with CE CompAmmoUser -->
+  <Operation Class="PatchOperationAdd">
+    <xpath>Defs/ThingDef[comps/li[@Class="CombatExtended.CompProperties_AmmoUser"]]/comps</xpath>
+    <value>
+      <li Class="CE_MagazineFed.CompProperties_WeaponMagazine" />
+    </value>
+  </Operation>
+
+  <!-- 2. Add StatPart_MagazineMassBulk to Mass and Bulk -->
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/StatDef[defName="Mass"]/parts</xpath>
+    <match Class="PatchOperationAdd">
+      <xpath>Defs/StatDef[defName="Mass"]/parts</xpath>
+      <value>
+        <li Class="CE_MagazineFed.StatPart_MagazineMassBulk" />
+      </value>
+    </match>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/StatDef[defName="Mass"]</xpath>
+      <value>
+        <parts>
+          <li Class="CE_MagazineFed.StatPart_MagazineMassBulk" />
+        </parts>
+      </value>
+    </nomatch>
+  </Operation>
+
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/StatDef[defName="Bulk"]/parts</xpath>
+    <match Class="PatchOperationAdd">
+      <xpath>Defs/StatDef[defName="Bulk"]/parts</xpath>
+      <value>
+        <li Class="CE_MagazineFed.StatPart_MagazineMassBulk" />
+      </value>
+    </match>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/StatDef[defName="Bulk"]</xpath>
+      <value>
+        <parts>
+          <li Class="CE_MagazineFed.StatPart_MagazineMassBulk" />
+        </parts>
+      </value>
+    </nomatch>
+  </Operation>
+
+  <!-- 3. Add idle magazine packing JobGiver to MainColonistBehaviorCore -->
+  <Operation Class="PatchOperationAdd">
+    <xpath>Defs/ThinkTreeDef[defName="MainColonistBehaviorCore"]/thinkRoot/subNodes/li[@Class="ThinkNode_PrioritySorter"]/subNodes</xpath>
+    <value>
+      <li Class="CE_MagazineFed.JobGiver_PackMagazines" />
+    </value>
+  </Operation>
+</Patch>

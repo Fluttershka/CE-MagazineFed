@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- General / Mod Settings -->
+  <CEMF_ModName>Combat Extended - 弹匣供弹 (Magazine Fed)</CEMF_ModName>
+  <CEMF_Settings_FactionScope>适用范围</CEMF_Settings_FactionScope>
+  <CEMF_Settings_FactionScope_PlayerOnly>仅玩家殖民地小人（默认，兼容性最佳）</CEMF_Settings_FactionScope_PlayerOnly>
+  <CEMF_Settings_FactionScope_AllFactions>全阵营（玩家与敌方/中立 NPC 均使用弹匣）</CEMF_Settings_FactionScope_AllFactions>
+  <CEMF_Settings_PackingPriority>自动压弹优先级</CEMF_Settings_PackingPriority>
+  <CEMF_Settings_PackingPriority_IdleOnly>仅闲时自动压弹（低于常规工作，默认）</CEMF_Settings_PackingPriority_IdleOnly>
+  <CEMF_Settings_PackingPriority_BeforeWork>优先于常规工作（战备优先）</CEMF_Settings_PackingPriority_BeforeWork>
+  <CEMF_Settings_PackingPriority_ManualOnly>仅手动点击压弹（关闭自动压弹）</CEMF_Settings_PackingPriority_ManualOnly>
+  <CEMF_Settings_DefaultMagCount>新武器默认携带弹匣总数（含枪内）：{0}</CEMF_Settings_DefaultMagCount>
+  <CEMF_Settings_TicksPerRound>闲时压弹耗时（每发）：{0} 秒</CEMF_Settings_TicksPerRound>
+  <CEMF_Settings_FieldPackMult>战斗现场压弹耗时倍率：{0}x</CEMF_Settings_FieldPackMult>
+  <CEMF_Settings_AutoProvision>自动免费配发空弹匣（按小人方案补足）</CEMF_Settings_AutoProvision>
+  <CEMF_Settings_FetchFromStockpile>闲时压弹背包子弹不足时自动去储藏区取弹</CEMF_Settings_FetchFromStockpile>
+  <CEMF_Settings_ShowMultiColorBar>在武器弹药状态栏显示混装弹种色带</CEMF_Settings_ShowMultiColorBar>
+
+  <!-- Magazine Thing / Stats / Float Menus -->
+  <CEMF_MagLabelFormat>{0} 弹匣 ({1}/{2})</CEMF_MagLabelFormat>
+  <CEMF_MagEmpty>空</CEMF_MagEmpty>
+  <CEMF_MagInspectCaliber>口径：{0}</CEMF_MagInspectCaliber>
+  <CEMF_MagInspectLoaded>已装填：{0} / {1}</CEMF_MagInspectLoaded>
+  <CEMF_MagInspectNext>下一发射出：{0}</CEMF_MagInspectNext>
+  <CEMF_MagInspectContents>弹种组成：{0}</CEMF_MagInspectContents>
+  <CEMF_StatsReport_MagContents>弹匣壳体与内置弹药</CEMF_StatsReport_MagContents>
+  <CEMF_UnloadMagazine>清空弹匣为散弹 ({0})</CEMF_UnloadMagazine>
+  <CEMF_CannotUnloadEmpty>弹匣已空</CEMF_CannotUnloadEmpty>
+
+  <!-- Gizmos & Reload Menu -->
+  <CEMF_Gizmo_ManageLabel>弹匣方案</CEMF_Gizmo_ManageLabel>
+  <CEMF_Gizmo_ManageDesc>打开弹匣与弹仓供弹方案管理界面，为殖民者配置携带弹匣数量及每个弹匣（或单发装填弹仓）内的混装弹种顺序。</CEMF_Gizmo_ManageDesc>
+  <CEMF_Menu_OpenManager>管理弹匣/供弹方案...</CEMF_Menu_OpenManager>
+  <CEMF_Menu_InsertMag>换入 弹匣 #{0} ({1}/{2}) {3}</CEMF_Menu_InsertMag>
+  <CEMF_Menu_InsertLooseMag>换入 弹匣 ({0}/{1}) {2}</CEMF_Menu_InsertLooseMag>
+  <CEMF_Menu_EjectMag>退下当前弹匣</CEMF_Menu_EjectMag>
+  <CEMF_Menu_FieldPack>现场压弹并装填（无可用满弹匣）</CEMF_Menu_FieldPack>
+  <CEMF_Menu_NoMagOrAmmo>无可用弹匣或散弹</CEMF_Menu_NoMagOrAmmo>
+  <CEMF_Mote_SwappingMag>更换弹匣...</CEMF_Mote_SwappingMag>
+  <CEMF_Mote_FieldPacking>现场压弹中...</CEMF_Mote_FieldPacking>
+  <CEMF_Mote_PackingMag>整理压弹中...</CEMF_Mote_PackingMag>
+  <CEMF_Gizmo_NextRound>下一发：{0}</CEMF_Gizmo_NextRound>
+  <CEMF_Gizmo_SpareMags>备用弹匣：{0} 个可用（共 {1} 发）</CEMF_Gizmo_SpareMags>
+  <CEMF_Gizmo_SingleLoadPlan>单发弹仓方案已启用（下一发：{0}）</CEMF_Gizmo_SingleLoadPlan>
+
+  <!-- Window_MagazineManager -->
+  <CEMF_UI_Title>CE 弹匣与混装供弹方案管理</CEMF_UI_Title>
+  <CEMF_UI_Colonists>殖民者列表</CEMF_UI_Colonists>
+  <CEMF_UI_NoWeapon>未携带需管理弹匣或弹仓的武器</CEMF_UI_NoWeapon>
+  <CEMF_UI_Mode_MagFed>弹匣供弹</CEMF_UI_Mode_MagFed>
+  <CEMF_UI_Mode_SingleLoad>单发弹仓</CEMF_UI_Mode_SingleLoad>
+  <CEMF_UI_PackNow>立即压弹整理</CEMF_UI_PackNow>
+  <CEMF_UI_PackNowTip>立即指派该殖民者按当前方案整理并装填弹匣（或补充单发弹仓弹药）。</CEMF_UI_PackNowTip>
+  <CEMF_UI_PackNowOrdered>已指派 {0} 立即开始压弹整理。</CEMF_UI_PackNowOrdered>
+  <CEMF_UI_PackNowNotNeeded>{0} 的弹匣已符合方案，或当前无可用散弹。</CEMF_UI_PackNowNotNeeded>
+  <CEMF_UI_TotalMags>携带弹匣总数 (含枪内)：</CEMF_UI_TotalMags>
+  <CEMF_UI_SparePreview>枪内 1 个 + 背包备用 {0} 个 | 预估总重 {1} kg / 体积 {2}</CEMF_UI_SparePreview>
+  <CEMF_UI_MagSlotLabel>弹匣 #{0}</CEMF_UI_MagSlotLabel>
+  <CEMF_UI_MagInGun>枪内</CEMF_UI_MagInGun>
+  <CEMF_UI_MagInBag>背包</CEMF_UI_MagInBag>
+  <CEMF_UI_MagReady>符合方案</CEMF_UI_MagReady>
+  <CEMF_UI_MagNeedPack>待压弹 ({0}/{1})</CEMF_UI_MagNeedPack>
+  <CEMF_UI_MagMismatch>弹序待整理 ({0}/{1})</CEMF_UI_MagMismatch>
+  <CEMF_UI_MagMissing>待配发</CEMF_UI_MagMissing>
+  <CEMF_UI_SyncToAllMags>同步当前排列到全部弹匣</CEMF_UI_SyncToAllMags>
+  <CEMF_UI_CopyPlan>复制</CEMF_UI_CopyPlan>
+  <CEMF_UI_PastePlan>粘贴</CEMF_UI_PastePlan>
+  <CEMF_UI_SingleLoadHeader>单发装填弹仓模式</CEMF_UI_SingleLoadHeader>
+  <CEMF_UI_SingleLoadDesc>该武器（如泵动霰弹枪、转轮或内置弹仓）采用逐发直接装填，不消耗实体弹匣，但装弹时会严格遵循下方配置的弹种与发射顺序。</CEMF_UI_SingleLoadDesc>
+  <CEMF_UI_SingleLoadCurrent>当前枪膛/弹仓：{0} / {1}</CEMF_UI_SingleLoadCurrent>
+  <CEMF_UI_AmmoPalette>可用弹种（点击选为画笔）</CEMF_UI_AmmoPalette>
+  <CEMF_UI_StockInfo>背包:{0}  基地:{1}</CEMF_UI_StockInfo>
+  <CEMF_UI_SequenceHeader>子弹发射顺序编排（第1发 = 最先射出 → 第{0}发 = 最后射出）</CEMF_UI_SequenceHeader>
+  <CEMF_UI_SequenceHint>左键点击/拖动绘制当前弹种 | 右键循环切换弹种</CEMF_UI_SequenceHint>
+  <CEMF_UI_ActualBar>当前实际装填：</CEMF_UI_ActualBar>
+  <CEMF_UI_PlanBar>目标方案预览：</CEMF_UI_PlanBar>
+  <CEMF_UI_FillAll>全填当前弹种</CEMF_UI_FillAll>
+  <CEMF_UI_ReverseOrder>反转顺序</CEMF_UI_ReverseOrder>
+  <CEMF_UI_Presets>预设库</CEMF_UI_Presets>
+  <CEMF_UI_SavePreset>保存为预设</CEMF_UI_SavePreset>
+  <CEMF_UI_LoadPreset>加载预设</CEMF_UI_LoadPreset>
+  <CEMF_UI_NoPresets>当前口径暂无已保存预设</CEMF_UI_NoPresets>
+  <CEMF_UI_DeletePreset>删除</CEMF_UI_DeletePreset>
+  <CEMF_UI_PresetSaved>已保存预设：{0}</CEMF_UI_PresetSaved>
+  <CEMF_UI_SegmentBuilder>快捷分段 / 循环编排</CEMF_UI_SegmentBuilder>
+  <CEMF_UI_AddSegment>+ 添加弹段</CEMF_UI_AddSegment>
+  <CEMF_UI_ClearSegments>清空段</CEMF_UI_ClearSegments>
+  <CEMF_UI_ApplySequential>按顺序填入</CEMF_UI_ApplySequential>
+  <CEMF_UI_ApplyCyclic>循环交错铺满</CEMF_UI_ApplyCyclic>
+  <CEMF_UI_SlotTooltip>第 {0} 发（发射顺位）\n方案弹种：{1}\n当前实装：{2}</CEMF_UI_SlotTooltip>
+  <CEMF_UI_EmptySlot>（空）</CEMF_UI_EmptySlot>
+  <CEMF_UI_EnterPresetName>输入预设名称：</CEMF_UI_EnterPresetName>
+  <CEMF_UI_Confirm>确定</CEMF_UI_Confirm>
+  <CEMF_UI_Cancel>取消</CEMF_UI_Cancel>
+  <CEMF_UI_InventoryButton>管理弹匣方案</CEMF_UI_InventoryButton>
+  <CEMF_UI_SummaryNeed>本武器全部方案共需：{0}</CEMF_UI_SummaryNeed>
+</LanguageData>

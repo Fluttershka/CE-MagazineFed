@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef>
+    <defName>CEMF_Magazine</defName>
+    <label>magazine</label>
+    <description>A detachable firearm magazine capable of holding an ordered mix of cartridges of a matching caliber.</description>
+    <thingClass>CE_MagazineFed.Thing_CEMagazine</thingClass>
+    <category>Item</category>
+    <drawerType>MapMeshOnly</drawerType>
+    <resourceReadoutPriority>Middle</resourceReadoutPriority>
+    <useHitPoints>true</useHitPoints>
+    <selectable>true</selectable>
+    <altitudeLayer>Item</altitudeLayer>
+    <stackLimit>1</stackLimit>
+    <alwaysHaulable>true</alwaysHaulable>
+    <drawGUIOverlay>true</drawGUIOverlay>
+    <rotatable>false</rotatable>
+    <pathCost>14</pathCost>
+    <tradeability>Sellable</tradeability>
+    <thingCategories>
+      <li>Ammo</li>
+    </thingCategories>
+    <graphicData>
+      <texPath>UI/Icons/CEMF_Mag_Rifle</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>0.75</drawSize>
+    </graphicData>
+    <statBases>
+      <MaxHitPoints>100</MaxHitPoints>
+      <Flammability>0.2</Flammability>
+      <DeteriorationRate>0.5</DeteriorationRate>
+      <Mass>0.12</Mass>
+      <Bulk>0.25</Bulk>
+      <MarketValue>5</MarketValue>
+    </statBases>
+    <comps>
+      <li Class="CompProperties_Forbiddable" />
+    </comps>
+  </ThingDef>
+</Defs>
