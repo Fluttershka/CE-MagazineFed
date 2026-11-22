@@ -31,7 +31,7 @@
       <DeteriorationRate>0.5</DeteriorationRate>
       <Mass>0.12</Mass>
       <Bulk>0.25</Bulk>
-      <MarketValue>5</MarketValue>
+      <MarketValue>0</MarketValue>
     </statBases>
     <comps>
       <li Class="CompProperties_Forbiddable" />

@@ -282,6 +282,20 @@ namespace CE_MagazineFed
             return sum;
         }
 
+        public float GetLoadedRoundsMarketValue()
+        {
+            if (rounds == null || rounds.Count == 0) return 0f;
+            float sum = 0f;
+            for (int i = 0; i < rounds.Count; i++)
+            {
+                if (rounds[i] != null)
+                {
+                    sum += rounds[i].GetStatValueAbstract(StatDefOf.MarketValue);
+                }
+            }
+            return sum;
+        }
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -335,6 +349,30 @@ namespace CE_MagazineFed
                 return true;
             }
             return false;
+        }
+    }
+
+    public class StatPart_MagazineMarketValue : StatPart
+    {
+        public override void TransformValue(StatRequest req, ref float val)
+        {
+            if (req.HasThing && req.Thing is Thing_CEMagazine mag)
+            {
+                val = Mathf.Max(0f, val + mag.GetLoadedRoundsMarketValue());
+            }
+        }
+
+        public override string ExplanationPart(StatRequest req)
+        {
+            if (req.HasThing && req.Thing is Thing_CEMagazine mag)
+            {
+                float ammoVal = mag.GetLoadedRoundsMarketValue();
+                if (ammoVal > 0.0001f)
+                {
+                    return "CEMF_StatsReport_MagMarketValue".Translate() + ": " + parentStat.ValueToString(ammoVal, ToStringNumberSense.Offset);
+                }
+            }
+            return null;
         }
     }
 }

@@ -45,6 +45,25 @@
     </nomatch>
   </Operation>
 
+  <!-- 2b. Add StatPart_MagazineMarketValue to MarketValue -->
+  <Operation Class="PatchOperationConditional">
+    <xpath>Defs/StatDef[defName="MarketValue"]/parts</xpath>
+    <match Class="PatchOperationAdd">
+      <xpath>Defs/StatDef[defName="MarketValue"]/parts</xpath>
+      <value>
+        <li Class="CE_MagazineFed.StatPart_MagazineMarketValue" />
+      </value>
+    </match>
+    <nomatch Class="PatchOperationAdd">
+      <xpath>Defs/StatDef[defName="MarketValue"]</xpath>
+      <value>
+        <parts>
+          <li Class="CE_MagazineFed.StatPart_MagazineMarketValue" />
+        </parts>
+      </value>
+    </nomatch>
+  </Operation>
+
   <!-- 3. Add idle magazine packing JobGiver to MainColonistBehaviorCore -->
   <Operation Class="PatchOperationAdd">
     <xpath>Defs/ThinkTreeDef[defName="MainColonistBehaviorCore"]/thinkRoot/subNodes/li[@Class="ThinkNode_PrioritySorter"]/subNodes</xpath>
