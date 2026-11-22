@@ -90,6 +90,71 @@ namespace CE_MagazineFed
         }
 
         /// <summary>
+        /// True if the pawn's currently equipped primary weapon is a magazine-fed weapon.
+        /// </summary>
+        public static bool HasEquippedMagFedWeapon(Pawn pawn)
+        {
+            var primary = pawn?.equipment?.Primary;
+            if (primary == null) return false;
+            return IsMagazineFedWeapon(primary.TryGetComp<CompAmmoUser>());
+        }
+
+        /// <summary>
+        /// True if `thingDef` is loose AmmoDef belonging to a magazine-fed weapon equipped/carried by `pawn`,
+        /// AND no non-magazine-fed weapon (e.g. pump shotgun, bow) on `pawn` uses that same AmmoDef.
+        /// </summary>
+        public static bool IsLooseAmmoBlockedForAutoPickup(Pawn pawn, ThingDef thingDef)
+        {
+            if (!(CE_MagazineFedMod.Settings?.preventAutoPickupLooseAmmo ?? true)) return false;
+            if (pawn == null || !(thingDef is AmmoDef ammoDef)) return false;
+            if (!ShouldUseMagazineSystem(pawn)) return false;
+
+            bool usedByMagFed = false;
+            bool usedByNonMagFed = false;
+
+            // Check primary equipped weapon
+            if (pawn.equipment?.Primary != null)
+            {
+                CheckWeaponUsesAmmo(pawn.equipment.Primary, ammoDef, ref usedByMagFed, ref usedByNonMagFed);
+            }
+
+            // Check inventory ranged weapons (sidearms)
+            if (pawn.inventory?.innerContainer != null)
+            {
+                var container = pawn.inventory.innerContainer;
+                for (int i = 0; i < container.Count; i++)
+                {
+                    if (container[i] is ThingWithComps twc && twc != pawn.equipment?.Primary)
+                    {
+                        CheckWeaponUsesAmmo(twc, ammoDef, ref usedByMagFed, ref usedByNonMagFed);
+                    }
+                }
+            }
+
+            return usedByMagFed && !usedByNonMagFed;
+        }
+
+        private static void CheckWeaponUsesAmmo(ThingWithComps weapon, AmmoDef ammoDef, ref bool usedByMagFed, ref bool usedByNonMagFed)
+        {
+            var ca = weapon.TryGetComp<CompAmmoUser>();
+            if (ca == null || !ca.UseAmmo || ca.CurAmmoSet?.ammoTypes == null) return;
+            bool matches = false;
+            var types = ca.CurAmmoSet.ammoTypes;
+            for (int i = 0; i < types.Count; i++)
+            {
+                if (types[i].ammo == ammoDef)
+                {
+                    matches = true;
+                    break;
+                }
+            }
+            if (!matches) return;
+
+            if (IsMagazineFedWeapon(ca)) usedByMagFed = true;
+            else usedByNonMagFed = true;
+        }
+
+        /// <summary>
         /// Returns all managed weapons currently equipped or carried in inventory by the pawn.
         /// </summary>
         public static List<ThingWithComps> GetManagedWeapons(Pawn pawn)

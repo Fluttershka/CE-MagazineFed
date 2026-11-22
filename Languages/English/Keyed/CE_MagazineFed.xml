@@ -14,6 +14,7 @@
   <CEMF_Settings_FieldPackMult>Combat Field-Packing Time Multiplier: {0}x</CEMF_Settings_FieldPackMult>
   <CEMF_Settings_AutoProvision>Auto-provision empty magazines according to pawn plan</CEMF_Settings_AutoProvision>
   <CEMF_Settings_PreferRecycleMapMags>Prefer picking up compatible magazines from ground/stockpiles before provisioning new ones</CEMF_Settings_PreferRecycleMapMags>
+  <CEMF_Settings_PreventAutoPickupLooseAmmo>Stop pawns with magazine-fed weapons from auto-picking up loose ammo for those weapons</CEMF_Settings_PreventAutoPickupLooseAmmo>
   <CEMF_Settings_FetchFromStockpile>Fetch loose ammo from colony stockpiles when inventory is insufficient</CEMF_Settings_FetchFromStockpile>
   <CEMF_Settings_AutoCleanupEmptyMags>Auto-cleanup unowned empty magazines on ground/stockpiles</CEMF_Settings_AutoCleanupEmptyMags>
   <CEMF_Settings_EmptyCleanupSeconds>Auto-cleanup delay for unowned empty magazines: {0}s</CEMF_Settings_EmptyCleanupSeconds>

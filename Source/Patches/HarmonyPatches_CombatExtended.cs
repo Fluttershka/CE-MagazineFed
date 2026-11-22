@@ -875,7 +875,101 @@ namespace CE_MagazineFed
     }
 
     // =========================================================================
-    // 8. NPC / Enemy Spawn Magazine Packing (when FactionScope == AllFactions)
+    // 8. Prevent auto-picking up loose ammo for magazine-fed weapons
+    // =========================================================================
+
+    [HarmonyPatch(typeof(JobGiver_TakeAndEquip), nameof(JobGiver_TakeAndEquip.GetPriority))]
+    public static class Patch_JobGiver_TakeAndEquip_GetPriority
+    {
+        public static bool Prefix(Pawn pawn, ref float __result)
+        {
+            if (!(CE_MagazineFedMod.Settings?.preventAutoPickupLooseAmmo ?? true)) return true;
+            if (pawn == null || !MagazineUtility.ShouldUseMagazineSystem(pawn)) return true;
+
+            if (MagazineUtility.HasEquippedMagFedWeapon(pawn))
+            {
+                __result = 0f;
+                return false;
+            }
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(JobGiver_TakeAndEquip), "TryGiveJob")]
+    public static class Patch_JobGiver_TakeAndEquip_TryGiveJob
+    {
+        public static bool Prefix(Pawn pawn, ref Job __result)
+        {
+            if (!(CE_MagazineFedMod.Settings?.preventAutoPickupLooseAmmo ?? true)) return true;
+            if (pawn == null || !MagazineUtility.ShouldUseMagazineSystem(pawn)) return true;
+
+            if (MagazineUtility.HasEquippedMagFedWeapon(pawn))
+            {
+                __result = null;
+                return false;
+            }
+            return true;
+        }
+    }
+
+    [HarmonyPatch(typeof(JobGiver_UpdateLoadout), "FindPickup")]
+    public static class Patch_JobGiver_UpdateLoadout_FindPickup
+    {
+        public static bool Prefix(Pawn pawn, LoadoutSlot curSlot, ref Thing curThing, ref Pawn curCarrier)
+        {
+            if (curSlot?.thingDef != null && MagazineUtility.IsLooseAmmoBlockedForAutoPickup(pawn, curSlot.thingDef))
+            {
+                curThing = null;
+                curCarrier = null;
+                return false;
+            }
+            return true;
+        }
+
+        public static void Postfix(Pawn pawn, ref Thing curThing, ref Pawn curCarrier)
+        {
+            if (curThing != null && MagazineUtility.IsLooseAmmoBlockedForAutoPickup(pawn, curThing.def))
+            {
+                curThing = null;
+                curCarrier = null;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(CompAmmoUser), nameof(CompAmmoUser.TryPickupAmmo))]
+    public static class Patch_CompAmmoUser_TryPickupAmmo
+    {
+        public static bool Prefix(CompAmmoUser __instance, ref bool __result)
+        {
+            if (!(CE_MagazineFedMod.Settings?.preventAutoPickupLooseAmmo ?? true)) return true;
+            if (!MagazineUtility.IsMagazineFedWeapon(__instance) || !MagazineUtility.ShouldUseMagazineSystem(__instance))
+            {
+                return true;
+            }
+            // Do not auto-pickup loose ammo for mag-fed weapons when out of ammo
+            __result = false;
+            return false;
+        }
+    }
+
+    [HarmonyPatch(typeof(CompMechAmmo), nameof(CompMechAmmo.TryMakeAmmoJob))]
+    public static class Patch_CompMechAmmo_TryMakeAmmoJob
+    {
+        public static bool Prefix(CompMechAmmo __instance, bool forced)
+        {
+            if (forced) return true;
+            if (!(CE_MagazineFedMod.Settings?.preventAutoPickupLooseAmmo ?? true)) return true;
+            if (__instance?.ParentPawn == null || !MagazineUtility.ShouldUseMagazineSystem(__instance.ParentPawn)) return true;
+            if (MagazineUtility.IsMagazineFedWeapon(__instance.AmmoUser))
+            {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    // =========================================================================
+    // 9. NPC / Enemy Spawn Magazine Packing (when FactionScope == AllFactions)
     // =========================================================================
 
     [HarmonyPatch(typeof(LoadoutPropertiesExtension), nameof(LoadoutPropertiesExtension.GenerateLoadoutFor))]

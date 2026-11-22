@@ -14,6 +14,7 @@
   <CEMF_Settings_FieldPackMult>战斗现场压弹耗时倍率：{0}x</CEMF_Settings_FieldPackMult>
   <CEMF_Settings_AutoProvision>自动免费配发空弹匣（按小人方案补足）</CEMF_Settings_AutoProvision>
   <CEMF_Settings_PreferRecycleMapMags>缺弹匣时优先捡取地面/仓库中的兼容现成弹匣（无现成弹匣再配发新的）</CEMF_Settings_PreferRecycleMapMags>
+  <CEMF_Settings_PreventAutoPickupLooseAmmo>装备弹匣武器时不再自动拾取该武器对应的散装弹药（仅在压弹时按需取弹）</CEMF_Settings_PreventAutoPickupLooseAmmo>
   <CEMF_Settings_FetchFromStockpile>闲时压弹背包子弹不足时自动去储藏区取弹</CEMF_Settings_FetchFromStockpile>
   <CEMF_Settings_AutoCleanupEmptyMags>自动清理地面/仓库中的无主空弹匣</CEMF_Settings_AutoCleanupEmptyMags>
   <CEMF_Settings_EmptyCleanupSeconds>无主空弹匣自动清理延迟：{0} 秒</CEMF_Settings_EmptyCleanupSeconds>

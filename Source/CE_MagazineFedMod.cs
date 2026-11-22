@@ -31,6 +31,7 @@ namespace CE_MagazineFed
         public float fieldPackTimeMultiplier = 2.0f;
         public bool autoProvisionEmptyMags = true;
         public bool preferRecycleMapMagazines = true;
+        public bool preventAutoPickupLooseAmmo = true;
         public bool fetchAmmoFromStockpile = true;
         public bool autoCleanupEmptyGroundMags = true;
         public float emptyMagCleanupSeconds = 15f;
@@ -51,6 +52,7 @@ namespace CE_MagazineFed
             Scribe_Values.Look(ref fieldPackTimeMultiplier, "fieldPackTimeMultiplier", 2.0f);
             Scribe_Values.Look(ref autoProvisionEmptyMags, "autoProvisionEmptyMags", true);
             Scribe_Values.Look(ref preferRecycleMapMagazines, "preferRecycleMapMagazines", true);
+            Scribe_Values.Look(ref preventAutoPickupLooseAmmo, "preventAutoPickupLooseAmmo", true);
             Scribe_Values.Look(ref fetchAmmoFromStockpile, "fetchAmmoFromStockpile", true);
             Scribe_Values.Look(ref autoCleanupEmptyGroundMags, "autoCleanupEmptyGroundMags", true);
             Scribe_Values.Look(ref emptyMagCleanupSeconds, "emptyMagCleanupSeconds", 15f);
@@ -121,6 +123,7 @@ namespace CE_MagazineFed
             listing.Gap(10f);
             listing.CheckboxLabeled("CEMF_Settings_AutoProvision".Translate(), ref Settings.autoProvisionEmptyMags);
             listing.CheckboxLabeled("CEMF_Settings_PreferRecycleMapMags".Translate(), ref Settings.preferRecycleMapMagazines);
+            listing.CheckboxLabeled("CEMF_Settings_PreventAutoPickupLooseAmmo".Translate(), ref Settings.preventAutoPickupLooseAmmo);
             listing.CheckboxLabeled("CEMF_Settings_FetchFromStockpile".Translate(), ref Settings.fetchAmmoFromStockpile);
             listing.CheckboxLabeled("CEMF_Settings_AutoCleanupEmptyMags".Translate(), ref Settings.autoCleanupEmptyGroundMags);
             if (Settings.autoCleanupEmptyGroundMags)
