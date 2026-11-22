@@ -1,5 +1,7 @@
 # Combat Extended - Magazine Fed (CE 弹匣供弹)
 
+![Combat Extended - Magazine Fed](About/Preview.png)
+
 为 RimWorld **Combat Extended (CE)** 开发的实体弹匣供弹与混装弹种顺序编排模组（支持 RimWorld **1.6** 与 **1.7**）。
 
 ## 核心特性
