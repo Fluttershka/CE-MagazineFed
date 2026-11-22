@@ -246,13 +246,6 @@ namespace CE_MagazineFed
             return targetEmpty - 0.12f;
         }
 
-        public float GetEmptyBulkDelta()
-        {
-            // Base ThingDef bulk is 0.25f; adjust realistically by magazine capacity
-            float targetEmpty = Mathf.Clamp(0.12f + capacity * 0.009f, 0.15f, 1.8f);
-            return targetEmpty - 0.25f;
-        }
-
         public float GetLoadedRoundsMass()
         {
             if (rounds == null || rounds.Count == 0) return 0f;
@@ -267,19 +260,40 @@ namespace CE_MagazineFed
             return sum;
         }
 
-        public float GetLoadedRoundsBulk()
+        public float GetCaliberReferenceBulk()
         {
-            if (rounds == null || rounds.Count == 0) return 0f;
-            float sum = 0f;
-            for (int i = 0; i < rounds.Count; i++)
+            if (ammoSet?.ammoTypes != null)
             {
-                if (rounds[i] != null)
+                for (int i = 0; i < ammoSet.ammoTypes.Count; i++)
                 {
-                    // Rounds packed inside a magazine are neatly stacked (~85% of loose bulk)
-                    sum += rounds[i].GetStatValueAbstract(CE_StatDefOf.Bulk) * 0.85f;
+                    var ad = ammoSet.ammoTypes[i]?.ammo;
+                    if (ad != null)
+                    {
+                        return ad.GetStatValueAbstract(CE_StatDefOf.Bulk);
+                    }
                 }
             }
-            return sum;
+            if (rounds != null && rounds.Count > 0 && rounds[0] != null)
+            {
+                return rounds[0].GetStatValueAbstract(CE_StatDefOf.Bulk);
+            }
+            return 0.02f;
+        }
+
+        /// <summary>
+        /// Constant full-magazine bulk (independent of current loaded round count).
+        /// </summary>
+        public float GetFullMagazineBulk()
+        {
+            float emptyShellBulk = Mathf.Clamp(0.12f + capacity * 0.009f, 0.15f, 1.8f);
+            float fullRoundsBulk = GetCaliberReferenceBulk() * capacity * 0.85f;
+            return emptyShellBulk + fullRoundsBulk;
+        }
+
+        public float GetFullBulkDelta()
+        {
+            // Base ThingDef bulk is 0.25f; always return full-magazine bulk delta regardless of current rounds
+            return GetFullMagazineBulk() - 0.25f;
         }
 
         public float GetLoadedRoundsMarketValue()
@@ -328,7 +342,8 @@ namespace CE_MagazineFed
         {
             if (TryGetDelta(req, out float delta) && Mathf.Abs(delta) > 0.0001f)
             {
-                return "CEMF_StatsReport_MagContents".Translate() + ": " + parentStat.ValueToString(delta, ToStringNumberSense.Offset);
+                string key = parentStat == CE_StatDefOf.Bulk ? "CEMF_StatsReport_MagFullBulk" : "CEMF_StatsReport_MagContents";
+                return key.Translate() + ": " + parentStat.ValueToString(delta, ToStringNumberSense.Offset);
             }
             return null;
         }
@@ -345,7 +360,8 @@ namespace CE_MagazineFed
             }
             if (parentStat == CE_StatDefOf.Bulk)
             {
-                delta = mag.GetEmptyBulkDelta() + mag.GetLoadedRoundsBulk();
+                // Magazine bulk is always fixed at full-magazine capacity regardless of loaded rounds
+                delta = mag.GetFullBulkDelta();
                 return true;
             }
             return false;

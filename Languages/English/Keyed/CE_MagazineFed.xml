@@ -29,6 +29,7 @@
   <CEMF_MagInspectNext>Next round: {0}</CEMF_MagInspectNext>
   <CEMF_MagInspectContents>Contents: {0}</CEMF_MagInspectContents>
   <CEMF_StatsReport_MagContents>Magazine body and loaded rounds</CEMF_StatsReport_MagContents>
+  <CEMF_StatsReport_MagFullBulk>Fixed full-magazine bulk</CEMF_StatsReport_MagFullBulk>
   <CEMF_StatsReport_MagMarketValue>Loaded rounds value</CEMF_StatsReport_MagMarketValue>
   <CEMF_UnloadMagazine>Unload magazine into loose ammo ({0})</CEMF_UnloadMagazine>
   <CEMF_CannotUnloadEmpty>Magazine is empty</CEMF_CannotUnloadEmpty>

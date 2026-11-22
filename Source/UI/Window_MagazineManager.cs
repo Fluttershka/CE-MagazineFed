@@ -983,17 +983,18 @@ namespace CE_MagazineFed
             totalMass = 0f;
             totalBulk = 0f;
             float emptyMass = Mathf.Clamp(0.05f + config.capacity * 0.004f, 0.06f, 0.65f);
-            float emptyBulk = Mathf.Clamp(0.12f + config.capacity * 0.009f, 0.15f, 1.8f);
+            float emptyShellBulk = Mathf.Clamp(0.12f + config.capacity * 0.009f, 0.15f, 1.8f);
+            float refAmmoBulk = config.ammoSet?.ammoTypes?.FirstOrDefault()?.ammo?.GetStatValueAbstract(CE_StatDefOf.Bulk) ?? 0.02f;
+            float fullMagBulk = emptyShellBulk + refAmmoBulk * config.capacity * 0.85f;
 
-            // Spare mags in inventory (targetTotalMags - 1) + inserted mag body
+            // Spare mags in inventory (targetTotalMags - 1) each occupy fixed full-magazine bulk
             totalMass += emptyMass * config.targetTotalMags;
-            totalBulk += emptyBulk * Math.Max(0, config.targetTotalMags - 1);
+            totalBulk += fullMagBulk * Math.Max(0, config.targetTotalMags - 1);
 
             var req = config.GetTotalAmmoRequirement();
             foreach (var kv in req)
             {
                 totalMass += kv.Key.GetStatValueAbstract(StatDefOf.Mass) * kv.Value;
-                totalBulk += kv.Key.GetStatValueAbstract(CE_StatDefOf.Bulk) * 0.85f * kv.Value;
             }
         }
 
