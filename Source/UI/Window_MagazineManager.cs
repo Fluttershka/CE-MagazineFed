@@ -58,9 +58,12 @@ namespace CE_MagazineFed
                 {
                     if (!p.Dead) pawns.Add(p);
                 }
-                foreach (Pawn p in map.mapPawns.SpawnedColonyMechs)
+                if (CE_MagazineFedMod.Settings?.enableForMechanoids ?? false)
                 {
-                    if (!p.Dead && MagazineUtility.GetManagedWeapons(p).Count > 0) pawns.Add(p);
+                    foreach (Pawn p in map.mapPawns.SpawnedColonyMechs)
+                    {
+                        if (!p.Dead && MagazineUtility.GetManagedWeapons(p).Count > 0) pawns.Add(p);
+                    }
                 }
             }
             if (selectedPawn != null && !selectedPawn.Dead && !pawns.Contains(selectedPawn))

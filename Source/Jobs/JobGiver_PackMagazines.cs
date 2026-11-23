@@ -53,7 +53,13 @@ namespace CE_MagazineFed
 
         protected override Job TryGiveJob(Pawn pawn)
         {
+            var settings = CE_MagazineFedMod.Settings;
+            if (settings == null || settings.packingPriority == PackingPriorityMode.ManualOnly) return null;
             if (!CanAttemptPacking(pawn)) return null;
+            if (LastFailTick.TryGetValue(pawn.thingIDNumber, out int lastFail) && Find.TickManager.TicksGame - lastFail < CooldownTicksAfterNoAmmo)
+            {
+                return null;
+            }
             if (!HasActionablePackingWork(pawn))
             {
                 LastFailTick[pawn.thingIDNumber] = Find.TickManager.TicksGame;
@@ -66,7 +72,7 @@ namespace CE_MagazineFed
         {
             if (pawn == null || pawn.Dead || pawn.Downed || pawn.Drafted || !pawn.Spawned || pawn.Map == null) return false;
             if (pawn.InMentalState) return false;
-            if (pawn.health?.capacities == null || !pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation)) return false;
+            if (!pawn.RaceProps.IsMechanoid && (pawn.health?.capacities == null || !pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation))) return false;
             if (!MagazineUtility.ShouldUseMagazineSystem(pawn)) return false;
             if (pawn.CurJobDef == CEMF_DefOf.CEMF_PackMagazines) return false;
             return true;

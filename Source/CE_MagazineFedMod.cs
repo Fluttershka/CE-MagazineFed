@@ -25,6 +25,7 @@ namespace CE_MagazineFed
     public class CEMFSettings : ModSettings
     {
         public FactionScope factionScope = FactionScope.PlayerOnly;
+        public bool enableForMechanoids = false;
         public PackingPriorityMode packingPriority = PackingPriorityMode.IdleOnly;
         public int defaultMagCount = 4;
         public float secondsPerRoundIdle = 0.15f;
@@ -46,6 +47,7 @@ namespace CE_MagazineFed
         {
             base.ExposeData();
             Scribe_Values.Look(ref factionScope, "factionScope", FactionScope.PlayerOnly);
+            Scribe_Values.Look(ref enableForMechanoids, "enableForMechanoids", false);
             Scribe_Values.Look(ref packingPriority, "packingPriority", PackingPriorityMode.IdleOnly);
             Scribe_Values.Look(ref defaultMagCount, "defaultMagCount", 4);
             Scribe_Values.Look(ref secondsPerRoundIdle, "secondsPerRoundIdle", 0.15f);
@@ -94,6 +96,7 @@ namespace CE_MagazineFed
             {
                 Settings.factionScope = FactionScope.AllFactions;
             }
+            listing.CheckboxLabeled("CEMF_Settings_EnableForMechanoids".Translate(), ref Settings.enableForMechanoids);
 
             listing.Gap(10f);
             listing.Label("CEMF_Settings_PackingPriority".Translate());

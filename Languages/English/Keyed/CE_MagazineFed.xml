@@ -5,6 +5,7 @@
   <CEMF_Settings_FactionScope>Active Faction Scope</CEMF_Settings_FactionScope>
   <CEMF_Settings_FactionScope_PlayerOnly>Player Colony Pawns Only (Default, Best Compatibility)</CEMF_Settings_FactionScope_PlayerOnly>
   <CEMF_Settings_FactionScope_AllFactions>All Factions (Including Hostile &amp; Neutral NPCs)</CEMF_Settings_FactionScope_AllFactions>
+  <CEMF_Settings_EnableForMechanoids>Enable magazine system for mechanoids (Off by default; keeps vanilla CE mech ammo system)</CEMF_Settings_EnableForMechanoids>
   <CEMF_Settings_PackingPriority>Auto-Packing Priority</CEMF_Settings_PackingPriority>
   <CEMF_Settings_PackingPriority_IdleOnly>Idle Only (Lower than normal work, Default)</CEMF_Settings_PackingPriority_IdleOnly>
   <CEMF_Settings_PackingPriority_BeforeWork>Before Normal Work (Combat Readiness)</CEMF_Settings_PackingPriority_BeforeWork>

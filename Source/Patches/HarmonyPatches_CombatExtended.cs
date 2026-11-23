@@ -700,6 +700,7 @@ namespace CE_MagazineFed
 
             if (__instance.Wielder != null
                 && (__instance.Wielder.IsColonistPlayerControlled || __instance.Wielder.IsColonyMech)
+                && MagazineUtility.ShouldUseMagazineSystem(__instance.Wielder)
                 && MagazineUtility.IsManagedWeapon(__instance))
             {
                 yield return new Command_Action
@@ -727,6 +728,7 @@ namespace CE_MagazineFed
             }
 
             if (__instance == null || (!__instance.IsColonistPlayerControlled && !__instance.IsColonyMech)) yield break;
+            if (!MagazineUtility.ShouldUseMagazineSystem(__instance)) yield break;
 
             // If primary weapon is already a managed weapon, CompAmmoUser already yielded the gizmo
             var primaryComp = __instance.equipment?.Primary?.TryGetComp<CompAmmoUser>();

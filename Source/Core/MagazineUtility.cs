@@ -15,13 +15,25 @@ namespace CE_MagazineFed
         public static bool ShouldUseMagazineSystem(Pawn pawn)
         {
             if (pawn == null || pawn.Dead) return false;
+            if (pawn.RaceProps == null) return false;
             if (pawn.inventory == null || pawn.inventory.innerContainer == null) return false;
             if (pawn.TryGetComp<CompInventory>() == null) return false;
 
-            var scope = CE_MagazineFedMod.Settings?.factionScope ?? FactionScope.PlayerOnly;
+            var settings = CE_MagazineFedMod.Settings;
+            var scope = settings?.factionScope ?? FactionScope.PlayerOnly;
+
+            if (pawn.RaceProps.IsMechanoid)
+            {
+                if (!(settings?.enableForMechanoids ?? false)) return false;
+                if (scope == FactionScope.AllFactions) return true;
+                return pawn.IsColonyMech || pawn.Faction == Faction.OfPlayer;
+            }
+
+            if (!pawn.RaceProps.Humanlike) return false;
+
             if (scope == FactionScope.AllFactions)
             {
-                return pawn.RaceProps != null && (pawn.RaceProps.Humanlike || pawn.RaceProps.IsMechanoid);
+                return true;
             }
             return pawn.IsColonistPlayerControlled || pawn.Faction == Faction.OfPlayer;
         }
