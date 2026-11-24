@@ -21,6 +21,23 @@
   <CEMF_Settings_EmptyCleanupSeconds>Auto-cleanup delay for unowned empty magazines: {0}s</CEMF_Settings_EmptyCleanupSeconds>
   <CEMF_Settings_DestroyShellOnUnload>Automatically recycle/remove empty magazine shell after unloading</CEMF_Settings_DestroyShellOnUnload>
   <CEMF_Settings_ShowMultiColorBar>Show mixed-ammo color strip on weapon ammo gizmo</CEMF_Settings_ShowMultiColorBar>
+  <CEMF_Settings_TabGeneral>General Settings</CEMF_Settings_TabGeneral>
+  <CEMF_Settings_TabWeapons>Weapon Feed Modes</CEMF_Settings_TabWeapons>
+  <CEMF_Settings_FilterModAll>Mod Source: All ({0})</CEMF_Settings_FilterModAll>
+  <CEMF_Settings_FilterModModified>Modified Only ({0})</CEMF_Settings_FilterModModified>
+  <CEMF_Settings_FilterModeAll>Mode: All</CEMF_Settings_FilterModeAll>
+  <CEMF_Settings_FilterModeOverridden>Overridden Only</CEMF_Settings_FilterModeOverridden>
+  <CEMF_Settings_SearchWeapons>Search weapon / defName / caliber...</CEMF_Settings_SearchWeapons>
+  <CEMF_Settings_ShowingWeapons>Showing {0} / {1} weapons</CEMF_Settings_ShowingWeapons>
+  <CEMF_Settings_BatchAuto>All Shown → Auto</CEMF_Settings_BatchAuto>
+  <CEMF_Settings_BatchMagFed>All Shown → Mag</CEMF_Settings_BatchMagFed>
+  <CEMF_Settings_BatchSingleLoad>All Shown → Tube</CEMF_Settings_BatchSingleLoad>
+  <CEMF_Settings_BatchVanilla>All Shown → Vanilla</CEMF_Settings_BatchVanilla>
+  <CEMF_Settings_DefaultModeTip>Default mode: {0}</CEMF_Settings_DefaultModeTip>
+  <CEMF_FeedMode_Auto>Auto</CEMF_FeedMode_Auto>
+  <CEMF_FeedMode_MagFed>Mag-Fed</CEMF_FeedMode_MagFed>
+  <CEMF_FeedMode_SingleLoad>Single-Load</CEMF_FeedMode_SingleLoad>
+  <CEMF_FeedMode_VanillaCE>Vanilla CE</CEMF_FeedMode_VanillaCE>
 
   <!-- Magazine Thing / Stats / Float Menus -->
   <CEMF_MagLabelFormat>{0} magazine ({1}/{2})</CEMF_MagLabelFormat>

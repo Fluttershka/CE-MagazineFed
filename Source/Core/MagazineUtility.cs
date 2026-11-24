@@ -47,15 +47,45 @@ namespace CE_MagazineFed
         }
 
         /// <summary>
-        /// True if this weapon uses detachable magazines (MagSize > 1, not reloadOneAtATime, standard single-round AmmoDefs).
+        /// Checks whether a weapon ThingDef is eligible for magazine/single-load management in Settings UI.
+        /// Excludes turrets, single-shot weapons (magSize <= 1), and multi-charge packs/fuel tanks.
         /// </summary>
-        public static bool IsMagazineFedWeapon(CompAmmoUser compAmmo)
+        public static bool IsEligibleWeaponDef(ThingDef def, out CompProperties_AmmoUser props, out WeaponFeedModeOverride defaultMode)
         {
-            if (compAmmo == null || !compAmmo.UseAmmo) return false;
-            if (compAmmo.turret != null || compAmmo.parent is Building_AutoloaderCE) return false;
-            if (compAmmo.Props == null || compAmmo.Props.reloadOneAtATime) return false;
-            if (compAmmo.MagSize <= 1) return false;
-            if (compAmmo.CurAmmoSet?.ammoTypes == null || compAmmo.CurAmmoSet.ammoTypes.Count == 0) return false;
+            props = null;
+            defaultMode = WeaponFeedModeOverride.VanillaCE;
+            if (def == null || !def.IsRangedWeapon) return false;
+            if (def.building != null) return false;
+            if (def.weaponTags != null && def.weaponTags.Contains("TurretGun")) return false;
+
+            props = def.GetCompProperties<CompProperties_AmmoUser>();
+            if (props == null || props.ammoSet == null || props.magazineSize <= 1) return false;
+            if (props.ammoSet.ammoTypes == null || props.ammoSet.ammoTypes.Count == 0) return false;
+
+            var types = props.ammoSet.ammoTypes;
+            for (int i = 0; i < types.Count; i++)
+            {
+                var ad = types[i].ammo;
+                if (ad == null) continue;
+                if (ad.ammoCount > 1 || ad.HasComp(typeof(CompApparelReloadable)))
+                {
+                    return false;
+                }
+            }
+
+            defaultMode = props.reloadOneAtATime ? WeaponFeedModeOverride.SingleLoad : WeaponFeedModeOverride.MagazineFed;
+            return true;
+        }
+
+        /// <summary>
+        /// Resolves the effective feeding mode for a live CompAmmoUser, honoring any per-weapon override in Mod Settings.
+        /// </summary>
+        public static WeaponFeedModeOverride GetEffectiveFeedMode(CompAmmoUser compAmmo)
+        {
+            if (compAmmo == null || !compAmmo.UseAmmo) return WeaponFeedModeOverride.VanillaCE;
+            if (compAmmo.turret != null || compAmmo.parent is Building_AutoloaderCE) return WeaponFeedModeOverride.VanillaCE;
+            if (compAmmo.Props == null || compAmmo.MagSize <= 1) return WeaponFeedModeOverride.VanillaCE;
+            if (compAmmo.CurAmmoSet?.ammoTypes == null || compAmmo.CurAmmoSet.ammoTypes.Count == 0) return WeaponFeedModeOverride.VanillaCE;
 
             // Exclude special multi-charge packs / fuel canisters (e.g. flamethrower tanks, reusable packs)
             var types = compAmmo.CurAmmoSet.ammoTypes;
@@ -65,35 +95,32 @@ namespace CE_MagazineFed
                 if (ad == null) continue;
                 if (ad.ammoCount > 1 || ad.HasComp(typeof(CompApparelReloadable)))
                 {
-                    return false;
+                    return WeaponFeedModeOverride.VanillaCE;
                 }
             }
-            return true;
+
+            var ov = CE_MagazineFedMod.Settings?.GetWeaponOverride(compAmmo.parent?.def) ?? WeaponFeedModeOverride.Auto;
+            if (ov != WeaponFeedModeOverride.Auto)
+            {
+                return ov;
+            }
+            return compAmmo.Props.reloadOneAtATime ? WeaponFeedModeOverride.SingleLoad : WeaponFeedModeOverride.MagazineFed;
         }
 
         /// <summary>
-        /// True if this weapon reloads one round at a time into a multi-round internal magazine/tube/cylinder
-        /// (e.g., pump shotgun, revolver, lever-action, internal-mag bolt action). Requirement #5.
+        /// True if this weapon uses detachable magazines (honors per-weapon Settings overrides).
+        /// </summary>
+        public static bool IsMagazineFedWeapon(CompAmmoUser compAmmo)
+        {
+            return GetEffectiveFeedMode(compAmmo) == WeaponFeedModeOverride.MagazineFed;
+        }
+
+        /// <summary>
+        /// True if this weapon uses single-round loading with a multi-round ordered ammo plan (honors per-weapon Settings overrides).
         /// </summary>
         public static bool IsSingleLoadMultiCapacityWeapon(CompAmmoUser compAmmo)
         {
-            if (compAmmo == null || !compAmmo.UseAmmo) return false;
-            if (compAmmo.turret != null || compAmmo.parent is Building_AutoloaderCE) return false;
-            if (compAmmo.Props == null || !compAmmo.Props.reloadOneAtATime) return false;
-            if (compAmmo.MagSize <= 1) return false;
-            if (compAmmo.CurAmmoSet?.ammoTypes == null || compAmmo.CurAmmoSet.ammoTypes.Count == 0) return false;
-
-            var types = compAmmo.CurAmmoSet.ammoTypes;
-            for (int i = 0; i < types.Count; i++)
-            {
-                var ad = types[i].ammo;
-                if (ad == null) continue;
-                if (ad.ammoCount > 1 || ad.HasComp(typeof(CompApparelReloadable)))
-                {
-                    return false;
-                }
-            }
-            return true;
+            return GetEffectiveFeedMode(compAmmo) == WeaponFeedModeOverride.SingleLoad;
         }
 
         public static bool IsManagedWeapon(CompAmmoUser compAmmo)

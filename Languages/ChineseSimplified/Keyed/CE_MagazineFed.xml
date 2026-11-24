@@ -21,6 +21,23 @@
   <CEMF_Settings_EmptyCleanupSeconds>无主空弹匣自动清理延迟：{0} 秒</CEMF_Settings_EmptyCleanupSeconds>
   <CEMF_Settings_DestroyShellOnUnload>清空弹匣为散弹后自动回收销毁空弹匣壳</CEMF_Settings_DestroyShellOnUnload>
   <CEMF_Settings_ShowMultiColorBar>在武器弹药状态栏显示混装弹种色带</CEMF_Settings_ShowMultiColorBar>
+  <CEMF_Settings_TabGeneral>常规设置</CEMF_Settings_TabGeneral>
+  <CEMF_Settings_TabWeapons>武器供弹模式</CEMF_Settings_TabWeapons>
+  <CEMF_Settings_FilterModAll>Mod 来源：全部 ({0})</CEMF_Settings_FilterModAll>
+  <CEMF_Settings_FilterModModified>仅显示已修改 ({0})</CEMF_Settings_FilterModModified>
+  <CEMF_Settings_FilterModeAll>模式：全部</CEMF_Settings_FilterModeAll>
+  <CEMF_Settings_FilterModeOverridden>仅自定义覆盖</CEMF_Settings_FilterModeOverridden>
+  <CEMF_Settings_SearchWeapons>搜索武器名 / DefName / 口径...</CEMF_Settings_SearchWeapons>
+  <CEMF_Settings_ShowingWeapons>显示 {0} / {1} 把武器</CEMF_Settings_ShowingWeapons>
+  <CEMF_Settings_BatchAuto>筛选全部→默认</CEMF_Settings_BatchAuto>
+  <CEMF_Settings_BatchMagFed>筛选全部→弹匣</CEMF_Settings_BatchMagFed>
+  <CEMF_Settings_BatchSingleLoad>筛选全部→单发</CEMF_Settings_BatchSingleLoad>
+  <CEMF_Settings_BatchVanilla>筛选全部→原版</CEMF_Settings_BatchVanilla>
+  <CEMF_Settings_DefaultModeTip>默认判定：{0}</CEMF_Settings_DefaultModeTip>
+  <CEMF_FeedMode_Auto>默认</CEMF_FeedMode_Auto>
+  <CEMF_FeedMode_MagFed>弹匣供弹</CEMF_FeedMode_MagFed>
+  <CEMF_FeedMode_SingleLoad>单发弹仓</CEMF_FeedMode_SingleLoad>
+  <CEMF_FeedMode_VanillaCE>原版</CEMF_FeedMode_VanillaCE>
 
   <!-- Magazine Thing / Stats / Float Menus -->
   <CEMF_MagLabelFormat>{0} 弹匣 ({1}/{2})</CEMF_MagLabelFormat>
