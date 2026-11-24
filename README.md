@@ -28,8 +28,72 @@
    - 泵动霰弹枪、转轮、内置弹仓等逐发装填武器仍使用散弹装填，同时提供与弹匣一致的可视化弹种顺序编排界面。
 
 6. **模组设置与兼容**
-   - 可在游戏模组设置中切换适用范围（默认「仅玩家殖民地小人」/「全阵营含敌方与中立 NPC」）、自动压弹优先级（仅闲时 / 优先于常规工作 / 仅手动）与压弹速度。
+   - 可在游戏模组设置中切换适用范围（默认「仅玩家殖民地小人」/「全阵营含敌方与中立 NPC」）、机械体开关（默认关闭）、自动压弹优先级（仅闲时 / 优先于常规工作 / 仅手动）与压弹速度。
+   - **武器供弹模式自定义**：设置页新增「武器供弹模式」标签，可按 Mod 来源、供弹模式与关键词筛选全部多发 CE 武器，单独或批量切换为「默认 / 弹匣供弹 / 单发弹仓 / 原版」并自动换算装弹时间（无需重启）。
    - 兼容 CE 装备方案（Loadout），不会误丢弹匣，并将弹匣内子弹计入弹药统计。
+
+## 面向 Mod 作者的 XML 兼容接口
+
+第三方武器 Mod 无需引用本 Mod 的 C# 程序集，即可通过 `CE_MagazineFed.FeedModeExtension` 为武器声明默认供弹方式。
+
+### 优先级规则
+
+**玩家 Mod 设置覆盖 > Mod 作者 XML `FeedModeExtension` > CE 原版 `reloadOneAtATime` 自动推断**
+
+### 字段说明
+
+| 字段 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `defaultFeedMode` | 枚举 | `Auto` | 可选值：`Auto`（按 CE 自动推断）、`MagazineFed`（弹匣供弹）、`SingleLoad`（单发弹仓）、`VanillaCE`（交回 CE 原版处理） |
+| `autoAdjustReloadTime` | `bool` | `true` | 当 `defaultFeedMode` 与 CE 原版 `reloadOneAtATime` 不同时，是否自动同步 `reloadOneAtATime` 并按公式换算 `reloadTime`（单发→弹匣：`原时间 × 弹容 × 0.9`；弹匣→单发：`原时间 / 弹容`，保留 1 位小数）。设为 `false` 则保持原版换弹时间与方式不变 |
+| `overrideReloadTime` | `float` | `-1` | 可选，大于 `0` 时直接指定换弹时间（秒，保留 1 位小数），优先级高于 `autoAdjustReloadTime` |
+
+### 方式一：直接在 `ThingDef` 中使用 `MayRequire`（最简推荐，按 `packageId` 软兼容）
+
+```xml
+<modExtensions>
+  <li MayRequire="kuwa.ce.magazinefed" Class="CE_MagazineFed.FeedModeExtension">
+    <defaultFeedMode>SingleLoad</defaultFeedMode>
+    <autoAdjustReloadTime>true</autoAdjustReloadTime>
+  </li>
+</modExtensions>
+```
+
+### 方式二：通过 `Patches/` 补丁注入（或配合 `LoadFolders.xml` 的 `IfModActive="kuwa.ce.magazinefed"`）
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Class="PatchOperationFindMod">
+    <mods>
+      <li>Combat Extended - Magazine Fed (弹匣供弹)</li>
+    </mods>
+    <match Class="PatchOperationConditional">
+      <xpath>Defs/ThingDef[defName="YourMod_DoubleBarrelShotgun"]/modExtensions</xpath>
+      <match Class="PatchOperationAdd">
+        <xpath>Defs/ThingDef[defName="YourMod_DoubleBarrelShotgun"]/modExtensions</xpath>
+        <value>
+          <li Class="CE_MagazineFed.FeedModeExtension">
+            <defaultFeedMode>SingleLoad</defaultFeedMode>
+            <autoAdjustReloadTime>true</autoAdjustReloadTime>
+          </li>
+        </value>
+      </match>
+      <nomatch Class="PatchOperationAdd">
+        <xpath>Defs/ThingDef[defName="YourMod_DoubleBarrelShotgun"]</xpath>
+        <value>
+          <modExtensions>
+            <li Class="CE_MagazineFed.FeedModeExtension">
+              <defaultFeedMode>SingleLoad</defaultFeedMode>
+              <autoAdjustReloadTime>true</autoAdjustReloadTime>
+            </li>
+          </modExtensions>
+        </value>
+      </nomatch>
+    </match>
+  </Operation>
+</Patch>
+```
 
 ## 依赖与加载顺序
 

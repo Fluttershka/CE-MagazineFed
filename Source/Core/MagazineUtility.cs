@@ -70,8 +70,26 @@ namespace CE_MagazineFed
         }
 
         /// <summary>
+        /// Resolves a weapon's default feeding mode (XML FeedModeExtension > CE original reloadOneAtATime).
+        /// </summary>
+        public static WeaponFeedModeOverride GetDefaultFeedMode(ThingDef def, out bool fromXmlExtension)
+        {
+            fromXmlExtension = false;
+            var ext = def?.GetModExtension<FeedModeExtension>();
+            if (ext != null && ext.defaultFeedMode != WeaponFeedModeOverride.Auto)
+            {
+                fromXmlExtension = true;
+                return ext.defaultFeedMode;
+            }
+            bool origSingleLoad = TryGetOriginalAmmoProps(def, out var orig)
+                ? orig.reloadOneAtATime
+                : (def?.GetCompProperties<CompProperties_AmmoUser>()?.reloadOneAtATime ?? false);
+            return origSingleLoad ? WeaponFeedModeOverride.SingleLoad : WeaponFeedModeOverride.MagazineFed;
+        }
+
+        /// <summary>
         /// Synchronizes a weapon ThingDef's CompProperties_AmmoUser (reloadOneAtATime & reloadTime)
-        /// with the player's current WeaponFeedModeOverride setting.
+        /// with the active feeding mode (Player Mod Settings Override > XML FeedModeExtension > CE original).
         /// Returns true if reload properties were modified from their original CE values.
         /// </summary>
         public static bool ApplyWeaponFeedOverride(ThingDef def)
@@ -85,35 +103,62 @@ namespace CE_MagazineFed
                 return false;
             }
 
-            var ov = CE_MagazineFedMod.Settings?.GetWeaponOverride(def) ?? WeaponFeedModeOverride.Auto;
+            var playerOv = CE_MagazineFedMod.Settings?.GetWeaponOverride(def) ?? WeaponFeedModeOverride.Auto;
+            bool usingPlayerOverride = playerOv != WeaponFeedModeOverride.Auto;
+            var ext = def.GetModExtension<FeedModeExtension>();
+            bool hasXmlMode = ext != null && ext.defaultFeedMode != WeaponFeedModeOverride.Auto;
+
+            WeaponFeedModeOverride effectiveMode = usingPlayerOverride
+                ? playerOv
+                : (hasXmlMode
+                    ? ext.defaultFeedMode
+                    : (orig.reloadOneAtATime ? WeaponFeedModeOverride.SingleLoad : WeaponFeedModeOverride.MagazineFed));
 
             bool targetReloadOneAtATime = orig.reloadOneAtATime;
             float targetReloadTime = orig.reloadTime;
             float targetStatReloadTime = orig.origStatReloadTime;
             bool modified = false;
 
-            if (orig.reloadOneAtATime && ov == WeaponFeedModeOverride.MagazineFed)
+            if (effectiveMode == WeaponFeedModeOverride.VanillaCE)
             {
-                // Single-load weapon converted to Magazine-Fed: origReloadTime * magSize * 0.9 (rounded to 1 decimal)
-                targetReloadOneAtATime = false;
-                targetReloadTime = RoundToOneDecimal(orig.reloadTime * orig.magazineSize * 0.9f, orig.reloadTime);
-                if (orig.hasStatReloadTime)
-                {
-                    targetStatReloadTime = RoundToOneDecimal(orig.origStatReloadTime * orig.magazineSize * 0.9f, orig.origStatReloadTime);
-                }
-                modified = true;
+                // Restore original CE values
             }
-            else if (!orig.reloadOneAtATime && ov == WeaponFeedModeOverride.SingleLoad)
+            else if (!usingPlayerOverride && hasXmlMode && ext.overrideReloadTime > 0f)
             {
-                // Magazine-fed weapon converted to Single-Load: origReloadTime / magSize (rounded to 1 decimal)
-                targetReloadOneAtATime = true;
-                int magDiv = Mathf.Max(1, orig.magazineSize);
-                targetReloadTime = RoundToOneDecimal(orig.reloadTime / magDiv, orig.reloadTime);
+                // Mod author specified an explicit reloadTime override in XML
+                targetReloadOneAtATime = (effectiveMode == WeaponFeedModeOverride.SingleLoad);
+                targetReloadTime = RoundToOneDecimal(ext.overrideReloadTime, ext.overrideReloadTime);
                 if (orig.hasStatReloadTime)
                 {
-                    targetStatReloadTime = RoundToOneDecimal(orig.origStatReloadTime / magDiv, orig.origStatReloadTime);
+                    targetStatReloadTime = targetReloadTime;
                 }
-                modified = true;
+                modified = (targetReloadOneAtATime != orig.reloadOneAtATime) || Math.Abs(targetReloadTime - orig.reloadTime) > 0.005f;
+            }
+            else if (usingPlayerOverride || (hasXmlMode && ext.autoAdjustReloadTime))
+            {
+                if (orig.reloadOneAtATime && effectiveMode == WeaponFeedModeOverride.MagazineFed)
+                {
+                    // Single-load weapon converted to Magazine-Fed: origReloadTime * magSize * 0.9 (rounded to 1 decimal)
+                    targetReloadOneAtATime = false;
+                    targetReloadTime = RoundToOneDecimal(orig.reloadTime * orig.magazineSize * 0.9f, orig.reloadTime);
+                    if (orig.hasStatReloadTime)
+                    {
+                        targetStatReloadTime = RoundToOneDecimal(orig.origStatReloadTime * orig.magazineSize * 0.9f, orig.origStatReloadTime);
+                    }
+                    modified = true;
+                }
+                else if (!orig.reloadOneAtATime && effectiveMode == WeaponFeedModeOverride.SingleLoad)
+                {
+                    // Magazine-fed weapon converted to Single-Load: origReloadTime / magSize (rounded to 1 decimal)
+                    targetReloadOneAtATime = true;
+                    int magDiv = Mathf.Max(1, orig.magazineSize);
+                    targetReloadTime = RoundToOneDecimal(orig.reloadTime / magDiv, orig.reloadTime);
+                    if (orig.hasStatReloadTime)
+                    {
+                        targetStatReloadTime = RoundToOneDecimal(orig.origStatReloadTime / magDiv, orig.origStatReloadTime);
+                    }
+                    modified = true;
+                }
             }
 
             props.reloadOneAtATime = targetReloadOneAtATime;
@@ -188,13 +233,13 @@ namespace CE_MagazineFed
                 }
             }
 
-            bool origSingleLoad = TryGetOriginalAmmoProps(def, out var orig) ? orig.reloadOneAtATime : props.reloadOneAtATime;
-            defaultMode = origSingleLoad ? WeaponFeedModeOverride.SingleLoad : WeaponFeedModeOverride.MagazineFed;
+            defaultMode = GetDefaultFeedMode(def, out _);
             return true;
         }
 
         /// <summary>
-        /// Resolves the effective feeding mode for a live CompAmmoUser, honoring any per-weapon override in Mod Settings.
+        /// Resolves the effective feeding mode for a live CompAmmoUser.
+        /// Priority: Player Mod Settings Override > XML FeedModeExtension > CE reloadOneAtATime auto-detection.
         /// </summary>
         public static WeaponFeedModeOverride GetEffectiveFeedMode(CompAmmoUser compAmmo)
         {
@@ -221,8 +266,7 @@ namespace CE_MagazineFed
             {
                 return ov;
             }
-            bool origSingleLoad = TryGetOriginalAmmoProps(weaponDef, out var orig) ? orig.reloadOneAtATime : compAmmo.Props.reloadOneAtATime;
-            return origSingleLoad ? WeaponFeedModeOverride.SingleLoad : WeaponFeedModeOverride.MagazineFed;
+            return GetDefaultFeedMode(weaponDef, out _);
         }
 
         /// <summary>

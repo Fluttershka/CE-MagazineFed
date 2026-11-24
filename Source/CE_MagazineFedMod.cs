@@ -127,6 +127,7 @@ namespace CE_MagazineFed
             public int magSize;
             public string caliberLabel;
             public WeaponFeedModeOverride defaultMode;
+            public bool defaultFromXml;
         }
 
         private List<WeaponEntry> cachedWeapons;
@@ -160,6 +161,7 @@ namespace CE_MagazineFed
                 string cal = props.ammoSet != null ? props.ammoSet.LabelCap.RawText : "";
                 string label = def.LabelCap.RawText ?? def.defName;
 
+                MagazineUtility.GetDefaultFeedMode(def, out bool fromXml);
                 cachedWeapons.Add(new WeaponEntry
                 {
                     def = def,
@@ -167,7 +169,8 @@ namespace CE_MagazineFed
                     searchBlob = (label + " " + def.defName + " " + cal + " " + modName).ToLowerInvariant(),
                     magSize = props.magazineSize,
                     caliberLabel = cal,
-                    defaultMode = defMode
+                    defaultMode = defMode,
+                    defaultFromXml = fromXml
                 });
 
                 if (modCounts.TryGetValue(modName, out int c)) modCounts[modName] = c + 1;
@@ -473,8 +476,11 @@ namespace CE_MagazineFed
                 Widgets.Label(new Rect(row.x + 44f, row.y + 19f, infoW, 16f), meta);
                 GUI.color = Color.white;
 
+                string defaultLabel = entry.defaultFromXml
+                    ? $"{GetModeLabel(entry.defaultMode)} (XML)"
+                    : GetModeLabel(entry.defaultMode);
                 TooltipHandler.TipRegion(new Rect(row.x + 6f, row.y, infoW + 38f, row.height),
-                    $"{entry.def.LabelCap} ({entry.def.defName})\nMod: {entry.modName}\n{entry.caliberLabel} × {entry.magSize}\n{"CEMF_Settings_DefaultModeTip".Translate(GetModeLabel(entry.defaultMode))}\n{"CEMF_Settings_ReloadTimeTip".Translate(reloadStr)}");
+                    $"{entry.def.LabelCap} ({entry.def.defName})\nMod: {entry.modName}\n{entry.caliberLabel} × {entry.magSize}\n{"CEMF_Settings_DefaultModeTip".Translate(defaultLabel)}\n{"CEMF_Settings_ReloadTimeTip".Translate(reloadStr)}");
 
                 // 4 segmented buttons: Auto | MagFed | SingleLoad | Vanilla
                 float by = row.y + 5f;
@@ -499,8 +505,10 @@ namespace CE_MagazineFed
 
                 float x3 = x2 + btnModeW + gap;
                 DrawModeButton(new Rect(x3, by, btnModeW, bh), "CEMF_FeedMode_VanillaCE".Translate(),
-                    ov == WeaponFeedModeOverride.VanillaCE, new Color(0.45f, 0.30f, 0.30f),
-                    () => Settings.SetWeaponOverride(entry.def, WeaponFeedModeOverride.VanillaCE));
+                    ov == WeaponFeedModeOverride.VanillaCE,
+                    ov == WeaponFeedModeOverride.Auto && eff == WeaponFeedModeOverride.VanillaCE ? new Color(0.34f, 0.24f, 0.24f) : new Color(0.45f, 0.30f, 0.30f),
+                    () => Settings.SetWeaponOverride(entry.def, WeaponFeedModeOverride.VanillaCE),
+                    ov == WeaponFeedModeOverride.Auto && eff == WeaponFeedModeOverride.VanillaCE);
 
                 Text.Font = GameFont.Small;
             }
