@@ -34,6 +34,7 @@
   <CEMF_Settings_BatchSingleLoad>All Shown → Tube</CEMF_Settings_BatchSingleLoad>
   <CEMF_Settings_BatchVanilla>All Shown → Vanilla</CEMF_Settings_BatchVanilla>
   <CEMF_Settings_DefaultModeTip>Default mode: {0}</CEMF_Settings_DefaultModeTip>
+  <CEMF_Settings_ReloadTimeTip>Reload time: {0}</CEMF_Settings_ReloadTimeTip>
   <CEMF_FeedMode_Auto>Auto</CEMF_FeedMode_Auto>
   <CEMF_FeedMode_MagFed>Mag-Fed</CEMF_FeedMode_MagFed>
   <CEMF_FeedMode_SingleLoad>Single-Load</CEMF_FeedMode_SingleLoad>

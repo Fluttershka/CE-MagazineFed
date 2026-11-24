@@ -8,9 +8,124 @@ using Verse;
 
 namespace CE_MagazineFed
 {
+    public struct OriginalAmmoProps
+    {
+        public bool reloadOneAtATime;
+        public float reloadTime;
+        public int magazineSize;
+        public bool hasStatReloadTime;
+        public float origStatReloadTime;
+    }
+
     public static class MagazineUtility
     {
         private static readonly Dictionary<string, Color> CategoryColorCache = new Dictionary<string, Color>();
+        private static readonly Dictionary<ThingDef, OriginalAmmoProps> OriginalAmmoPropsCache = new Dictionary<ThingDef, OriginalAmmoProps>();
+
+        public static bool TryGetOriginalAmmoProps(ThingDef def, out OriginalAmmoProps orig)
+        {
+            orig = default;
+            if (def == null) return false;
+            if (OriginalAmmoPropsCache.TryGetValue(def, out orig)) return true;
+
+            var props = def.GetCompProperties<CompProperties_AmmoUser>();
+            if (props == null) return false;
+
+            bool hasStat = def.statBases != null && def.statBases.StatListContains(CE_StatDefOf.ReloadTime);
+            orig = new OriginalAmmoProps
+            {
+                reloadOneAtATime = props.reloadOneAtATime,
+                reloadTime = props.reloadTime,
+                magazineSize = props.magazineSize,
+                hasStatReloadTime = hasStat,
+                origStatReloadTime = hasStat ? def.statBases.GetStatValueFromList(CE_StatDefOf.ReloadTime, props.reloadTime) : 0f
+            };
+            OriginalAmmoPropsCache[def] = orig;
+            return true;
+        }
+
+        private static float RoundToOneDecimal(float value, float originalPositiveCheck)
+        {
+            if (originalPositiveCheck <= 0f) return 0f;
+            float rounded = (float)Math.Round(value, 1, MidpointRounding.AwayFromZero);
+            return Mathf.Max(0.1f, rounded);
+        }
+
+        /// <summary>
+        /// Snapshots untouched CE CompProperties_AmmoUser values for all ThingDefs and applies saved overrides.
+        /// Must run at startup after all Defs and XML patches are loaded.
+        /// </summary>
+        public static void CacheOriginalWeaponPropsAndApplyOverrides()
+        {
+            int overriddenCount = 0;
+            foreach (ThingDef def in DefDatabase<ThingDef>.AllDefsListForReading)
+            {
+                if (!TryGetOriginalAmmoProps(def, out _)) continue;
+                if (ApplyWeaponFeedOverride(def)) overriddenCount++;
+            }
+            if (overriddenCount > 0)
+            {
+                Log.Message($"[CE_MagazineFed] Applied custom feed mode & reload time overrides to {overriddenCount} weapon defs.");
+            }
+        }
+
+        /// <summary>
+        /// Synchronizes a weapon ThingDef's CompProperties_AmmoUser (reloadOneAtATime & reloadTime)
+        /// with the player's current WeaponFeedModeOverride setting.
+        /// Returns true if reload properties were modified from their original CE values.
+        /// </summary>
+        public static bool ApplyWeaponFeedOverride(ThingDef def)
+        {
+            if (def == null || !TryGetOriginalAmmoProps(def, out var orig)) return false;
+            var props = def.GetCompProperties<CompProperties_AmmoUser>();
+            if (props == null) return false;
+
+            if (!IsEligibleWeaponDef(def, out _, out _))
+            {
+                return false;
+            }
+
+            var ov = CE_MagazineFedMod.Settings?.GetWeaponOverride(def) ?? WeaponFeedModeOverride.Auto;
+
+            bool targetReloadOneAtATime = orig.reloadOneAtATime;
+            float targetReloadTime = orig.reloadTime;
+            float targetStatReloadTime = orig.origStatReloadTime;
+            bool modified = false;
+
+            if (orig.reloadOneAtATime && ov == WeaponFeedModeOverride.MagazineFed)
+            {
+                // Single-load weapon converted to Magazine-Fed: origReloadTime * magSize * 0.9 (rounded to 1 decimal)
+                targetReloadOneAtATime = false;
+                targetReloadTime = RoundToOneDecimal(orig.reloadTime * orig.magazineSize * 0.9f, orig.reloadTime);
+                if (orig.hasStatReloadTime)
+                {
+                    targetStatReloadTime = RoundToOneDecimal(orig.origStatReloadTime * orig.magazineSize * 0.9f, orig.origStatReloadTime);
+                }
+                modified = true;
+            }
+            else if (!orig.reloadOneAtATime && ov == WeaponFeedModeOverride.SingleLoad)
+            {
+                // Magazine-fed weapon converted to Single-Load: origReloadTime / magSize (rounded to 1 decimal)
+                targetReloadOneAtATime = true;
+                int magDiv = Mathf.Max(1, orig.magazineSize);
+                targetReloadTime = RoundToOneDecimal(orig.reloadTime / magDiv, orig.reloadTime);
+                if (orig.hasStatReloadTime)
+                {
+                    targetStatReloadTime = RoundToOneDecimal(orig.origStatReloadTime / magDiv, orig.origStatReloadTime);
+                }
+                modified = true;
+            }
+
+            props.reloadOneAtATime = targetReloadOneAtATime;
+            props.reloadTime = targetReloadTime;
+
+            if (orig.hasStatReloadTime && def.statBases != null)
+            {
+                def.SetStatBaseValue(CE_StatDefOf.ReloadTime, targetStatReloadTime);
+            }
+
+            return modified;
+        }
 
         public static bool ShouldUseMagazineSystem(Pawn pawn)
         {
@@ -73,7 +188,8 @@ namespace CE_MagazineFed
                 }
             }
 
-            defaultMode = props.reloadOneAtATime ? WeaponFeedModeOverride.SingleLoad : WeaponFeedModeOverride.MagazineFed;
+            bool origSingleLoad = TryGetOriginalAmmoProps(def, out var orig) ? orig.reloadOneAtATime : props.reloadOneAtATime;
+            defaultMode = origSingleLoad ? WeaponFeedModeOverride.SingleLoad : WeaponFeedModeOverride.MagazineFed;
             return true;
         }
 
@@ -99,12 +215,14 @@ namespace CE_MagazineFed
                 }
             }
 
-            var ov = CE_MagazineFedMod.Settings?.GetWeaponOverride(compAmmo.parent?.def) ?? WeaponFeedModeOverride.Auto;
+            ThingDef weaponDef = compAmmo.parent?.def;
+            var ov = CE_MagazineFedMod.Settings?.GetWeaponOverride(weaponDef) ?? WeaponFeedModeOverride.Auto;
             if (ov != WeaponFeedModeOverride.Auto)
             {
                 return ov;
             }
-            return compAmmo.Props.reloadOneAtATime ? WeaponFeedModeOverride.SingleLoad : WeaponFeedModeOverride.MagazineFed;
+            bool origSingleLoad = TryGetOriginalAmmoProps(weaponDef, out var orig) ? orig.reloadOneAtATime : compAmmo.Props.reloadOneAtATime;
+            return origSingleLoad ? WeaponFeedModeOverride.SingleLoad : WeaponFeedModeOverride.MagazineFed;
         }
 
         /// <summary>

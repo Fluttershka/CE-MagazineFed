@@ -77,6 +77,7 @@ namespace CE_MagazineFed
             {
                 weaponFeedOverrides[def.defName] = mode;
             }
+            MagazineUtility.ApplyWeaponFeedOverride(def);
         }
 
         public override void ExposeData()
@@ -461,12 +462,19 @@ namespace CE_MagazineFed
 
                 Text.Font = GameFont.Tiny;
                 GUI.color = new Color(0.66f, 0.70f, 0.76f);
-                string meta = $"{entry.modName}  |  {entry.caliberLabel} ({entry.magSize})";
+                var liveProps = entry.def.GetCompProperties<CompProperties_AmmoUser>();
+                float curReload = liveProps?.reloadTime ?? 0f;
+                float origReload = MagazineUtility.TryGetOriginalAmmoProps(entry.def, out var origProps) ? origProps.reloadTime : curReload;
+                bool reloadChanged = Math.Abs(curReload - origReload) > 0.005f;
+                string reloadStr = reloadChanged
+                    ? $"{origReload:0.##}s → {curReload:0.0}s"
+                    : $"{curReload:0.##}s";
+                string meta = $"{entry.modName}  |  {entry.caliberLabel} ({entry.magSize})  |  {reloadStr}";
                 Widgets.Label(new Rect(row.x + 44f, row.y + 19f, infoW, 16f), meta);
                 GUI.color = Color.white;
 
                 TooltipHandler.TipRegion(new Rect(row.x + 6f, row.y, infoW + 38f, row.height),
-                    $"{entry.def.LabelCap} ({entry.def.defName})\nMod: {entry.modName}\n{entry.caliberLabel} × {entry.magSize}\n{"CEMF_Settings_DefaultModeTip".Translate(GetModeLabel(entry.defaultMode))}");
+                    $"{entry.def.LabelCap} ({entry.def.defName})\nMod: {entry.modName}\n{entry.caliberLabel} × {entry.magSize}\n{"CEMF_Settings_DefaultModeTip".Translate(GetModeLabel(entry.defaultMode))}\n{"CEMF_Settings_ReloadTimeTip".Translate(reloadStr)}");
 
                 // 4 segmented buttons: Auto | MagFed | SingleLoad | Vanilla
                 float by = row.y + 5f;
@@ -562,6 +570,7 @@ namespace CE_MagazineFed
             {
                 Log.Message($"[CE_MagazineFed] Fallback-injected CompProperties_WeaponMagazine into {added} additional weapon defs.");
             }
+            MagazineUtility.CacheOriginalWeaponPropsAndApplyOverrides();
         }
     }
 }

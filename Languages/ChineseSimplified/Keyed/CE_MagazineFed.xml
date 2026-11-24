@@ -34,6 +34,7 @@
   <CEMF_Settings_BatchSingleLoad>筛选全部→单发</CEMF_Settings_BatchSingleLoad>
   <CEMF_Settings_BatchVanilla>筛选全部→原版</CEMF_Settings_BatchVanilla>
   <CEMF_Settings_DefaultModeTip>默认判定：{0}</CEMF_Settings_DefaultModeTip>
+  <CEMF_Settings_ReloadTimeTip>装弹耗时：{0}</CEMF_Settings_ReloadTimeTip>
   <CEMF_FeedMode_Auto>默认</CEMF_FeedMode_Auto>
   <CEMF_FeedMode_MagFed>弹匣供弹</CEMF_FeedMode_MagFed>
   <CEMF_FeedMode_SingleLoad>单发弹仓</CEMF_FeedMode_SingleLoad>
