@@ -27,4 +27,11 @@
     <reportString>unloading TargetA.</reportString>
     <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
   </JobDef>
+
+  <JobDef>
+    <defName>CEMF_PortLoad</defName>
+    <driverClass>CE_MagazineFed.JobDriver_PortLoad</driverClass>
+    <reportString>port-loading TargetB.</reportString>
+    <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
+  </JobDef>
 </Defs>

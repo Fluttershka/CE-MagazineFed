@@ -713,6 +713,87 @@ namespace CE_MagazineFed
                         Find.WindowStack.Add(new Window_MagazineManager(__instance.Wielder, __instance.parent));
                     }
                 };
+
+                // Port Load gizmo for SingleLoad multi-capacity weapons
+                if (MagazineUtility.IsSingleLoadMultiCapacityWeapon(__instance))
+                {
+                    Pawn wielder = __instance.Wielder;
+                    CompAmmoUser ca = __instance;
+                    var availAmmo = new List<(AmmoDef ammo, int count, Thing sample)>();
+                    if (ca.CurAmmoSet?.ammoTypes != null && wielder.inventory?.innerContainer != null)
+                    {
+                        var container = wielder.inventory.innerContainer;
+                        foreach (var link in ca.CurAmmoSet.ammoTypes)
+                        {
+                            AmmoDef ad = link.ammo;
+                            if (ad == null) continue;
+                            int total = 0;
+                            Thing sample = null;
+                            for (int i = 0; i < container.Count; i++)
+                            {
+                                if (container[i].def == ad && container[i].stackCount > 0)
+                                {
+                                    total += container[i].stackCount;
+                                    if (sample == null) sample = container[i];
+                                }
+                            }
+                            if (total > 0)
+                            {
+                                availAmmo.Add((ad, total, sample));
+                            }
+                        }
+                    }
+
+                    var portCmd = new Command_Action
+                    {
+                        defaultLabel = "CEMF_Gizmo_PortLoadLabel".Translate(),
+                        defaultDesc = "CEMF_Gizmo_PortLoadDesc".Translate(),
+                        icon = CEMF_Textures.PortLoad,
+                        action = () =>
+                        {
+                            var cm = ca.parent.TryGetComp<CompWeaponMagazine>();
+                            cm?.SyncFromCompAmmo();
+                            bool isFull = ca.CurMagCount >= ca.MagSize;
+                            AmmoDef chambered = cm?.NextRound;
+
+                            var opts = new List<FloatMenuOption>();
+                            foreach (var item in availAmmo)
+                            {
+                                AmmoDef capturedAmmo = item.ammo;
+                                Thing capturedSample = item.sample;
+                                string shortName = MagazineUtility.GetShortAmmoLabel(capturedAmmo);
+                                string chamberTag = (chambered == capturedAmmo && ca.CurMagCount > 0)
+                                    ? "CEMF_PortLoad_ChamberTag".Translate().RawText
+                                    : "";
+                                string label = (isFull
+                                    ? "CEMF_PortLoad_OptionFull".Translate(shortName, item.count).RawText
+                                    : "CEMF_PortLoad_Option".Translate(shortName, item.count).RawText) + chamberTag;
+
+                                opts.Add(new FloatMenuOption(label, () =>
+                                {
+                                    if (wielder == null || wielder.Dead || ca.parent == null || ca.parent.Destroyed) return;
+                                    if (cm != null) cm.pendingPortLoadAmmo = capturedAmmo;
+                                    Job job = JobMaker.MakeJob(CEMF_DefOf.CEMF_PortLoad, wielder, ca.parent, capturedSample);
+                                    job.playerForced = true;
+                                    wielder.jobs.StartJob(job, JobCondition.InterruptForced, null, wielder.CurJob?.def != job.def, true);
+                                }, capturedAmmo));
+                            }
+
+                            if (opts.Count == 0)
+                            {
+                                opts.Add(new FloatMenuOption("CEMF_PortLoad_NoAmmo".Translate(), null));
+                            }
+                            Find.WindowStack.Add(new FloatMenu(opts));
+                        }
+                    };
+
+                    if (availAmmo.Count == 0)
+                    {
+                        portCmd.Disable("CEMF_PortLoad_NoAmmo".Translate());
+                    }
+
+                    yield return portCmd;
+                }
             }
         }
     }

@@ -46,6 +46,12 @@ namespace CE_MagazineFed
         [Unsaved]
         public Thing_CEMagazine pendingSelectedMag;
 
+        /// <summary>
+        /// Transient: specific ammo chosen by player for a tactical Port Load on SingleLoad weapons.
+        /// </summary>
+        [Unsaved]
+        public AmmoDef pendingPortLoadAmmo;
+
         public CompAmmoUser CompAmmo => parent.TryGetComp<CompAmmoUser>();
 
         public AmmoDef NextRound => loadedRounds != null && loadedRounds.Count > 0 ? loadedRounds[0] : CompAmmo?.CurrentAmmo;

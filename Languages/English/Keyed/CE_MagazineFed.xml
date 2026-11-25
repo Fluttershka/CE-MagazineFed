@@ -60,6 +60,14 @@
   <!-- Gizmos & Reload Menu -->
   <CEMF_Gizmo_ManageLabel>Magazines</CEMF_Gizmo_ManageLabel>
   <CEMF_Gizmo_ManageDesc>Open the Magazine &amp; Ammo Loadout Manager to configure magazine counts and mixed-ammo round order for this colonist.</CEMF_Gizmo_ManageDesc>
+  <CEMF_Gizmo_PortLoadLabel>Port Load</CEMF_Gizmo_PortLoadLabel>
+  <CEMF_Gizmo_PortLoadDesc>Temporarily load one chosen compatible round from inventory directly into slot #1 (fired next). When full, ejects the currently chambered round back into inventory first.</CEMF_Gizmo_PortLoadDesc>
+  <CEMF_PortLoad_NoAmmo>No compatible loose ammo in inventory</CEMF_PortLoad_NoAmmo>
+  <CEMF_PortLoad_Option>Port load {0} (×{1})</CEMF_PortLoad_Option>
+  <CEMF_PortLoad_OptionFull>Swap chamber → {0} (×{1})</CEMF_PortLoad_OptionFull>
+  <CEMF_PortLoad_ChamberTag> [Chambered]</CEMF_PortLoad_ChamberTag>
+  <CEMF_Mote_PortLoading>Port-loading {0}</CEMF_Mote_PortLoading>
+  <CEMF_Report_PortLoading>Port-loading {0} ({1})</CEMF_Report_PortLoading>
   <CEMF_Menu_OpenManager>Manage Magazine / Ammo Plans...</CEMF_Menu_OpenManager>
   <CEMF_Menu_InsertMag>Insert Mag #{0} ({1}/{2}) {3}</CEMF_Menu_InsertMag>
   <CEMF_Menu_InsertLooseMag>Insert Mag ({0}/{1}) {2}</CEMF_Menu_InsertLooseMag>

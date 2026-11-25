@@ -12,6 +12,7 @@ namespace CE_MagazineFed
         public static JobDef CEMF_FieldPackAndReload;
         public static JobDef CEMF_PackMagazines;
         public static JobDef CEMF_UnloadMagazine;
+        public static JobDef CEMF_PortLoad;
 
         static CEMF_DefOf()
         {
@@ -24,6 +25,7 @@ namespace CE_MagazineFed
     {
         public static readonly Texture2D ManageMags = ContentFinder<Texture2D>.Get("UI/Buttons/CEMF_ManageMags", false) ?? BaseContent.BadTex;
         public static readonly Texture2D PackNow = ContentFinder<Texture2D>.Get("UI/Buttons/CEMF_PackNow", false) ?? BaseContent.BadTex;
+        public static readonly Texture2D PortLoad = ContentFinder<Texture2D>.Get("UI/Buttons/CEMF_PortLoad", false) ?? ManageMags;
         public static readonly Texture2D MagPistol = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Pistol", false) ?? BaseContent.BadTex;
         public static readonly Texture2D MagRifle = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Rifle", false) ?? BaseContent.BadTex;
         public static readonly Texture2D MagDrum = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Drum", false) ?? BaseContent.BadTex;
