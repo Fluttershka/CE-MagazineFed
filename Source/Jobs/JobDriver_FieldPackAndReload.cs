@@ -159,6 +159,10 @@ namespace CE_MagazineFed
             {
                 insertWaitToil.actor.pather?.StopDead();
                 float reloadTime = CompAmmo?.Props?.reloadTime ?? 1.5f;
+                if (CE_Utility.GetPrimaryVerbPropsCE(Weapon)?.useEquipmentStatValues ?? false)
+                {
+                    reloadTime = Weapon.GetStatValue(CE_StatDefOf.ReloadTime);
+                }
                 float reloadFactor = Weapon.GetStatValue(CE_StatDefOf.CE_RangedWeapon_ReloadFactor);
                 float speed = Mathf.Max(0.1f, pawn.GetStatValue(CE_StatDefOf.ReloadSpeed));
                 insertWaitToil.defaultDuration = Mathf.Max(15, Mathf.CeilToInt(GenTicks.SecondsToTicks(reloadTime) * reloadFactor / speed));

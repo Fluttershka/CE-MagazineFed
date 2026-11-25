@@ -38,7 +38,7 @@ namespace CE_MagazineFed
                 reloadTime = props.reloadTime,
                 magazineSize = props.magazineSize,
                 hasStatReloadTime = hasStat,
-                origStatReloadTime = hasStat ? def.statBases.GetStatValueFromList(CE_StatDefOf.ReloadTime, props.reloadTime) : 0f
+                origStatReloadTime = hasStat ? def.statBases.GetStatValueFromList(CE_StatDefOf.ReloadTime, props.reloadTime) : props.reloadTime
             };
             OriginalAmmoPropsCache[def] = orig;
             return true;
@@ -116,7 +116,8 @@ namespace CE_MagazineFed
 
             bool targetReloadOneAtATime = orig.reloadOneAtATime;
             float targetReloadTime = orig.reloadTime;
-            float targetStatReloadTime = orig.origStatReloadTime;
+            float baseStatReload = orig.origStatReloadTime > 0f ? orig.origStatReloadTime : orig.reloadTime;
+            float targetStatReloadTime = baseStatReload;
             bool modified = false;
 
             if (effectiveMode == WeaponFeedModeOverride.VanillaCE)
@@ -128,10 +129,7 @@ namespace CE_MagazineFed
                 // Mod author specified an explicit reloadTime override in XML
                 targetReloadOneAtATime = (effectiveMode == WeaponFeedModeOverride.SingleLoad);
                 targetReloadTime = RoundToOneDecimal(ext.overrideReloadTime, ext.overrideReloadTime);
-                if (orig.hasStatReloadTime)
-                {
-                    targetStatReloadTime = targetReloadTime;
-                }
+                targetStatReloadTime = targetReloadTime;
                 modified = (targetReloadOneAtATime != orig.reloadOneAtATime) || Math.Abs(targetReloadTime - orig.reloadTime) > 0.005f;
             }
             else if (usingPlayerOverride || (hasXmlMode && ext.autoAdjustReloadTime))
@@ -141,10 +139,7 @@ namespace CE_MagazineFed
                     // Single-load weapon converted to Magazine-Fed: origReloadTime * magSize * 0.9 (rounded to 1 decimal)
                     targetReloadOneAtATime = false;
                     targetReloadTime = RoundToOneDecimal(orig.reloadTime * orig.magazineSize * 0.9f, orig.reloadTime);
-                    if (orig.hasStatReloadTime)
-                    {
-                        targetStatReloadTime = RoundToOneDecimal(orig.origStatReloadTime * orig.magazineSize * 0.9f, orig.origStatReloadTime);
-                    }
+                    targetStatReloadTime = RoundToOneDecimal(baseStatReload * orig.magazineSize * 0.9f, baseStatReload);
                     modified = true;
                 }
                 else if (!orig.reloadOneAtATime && effectiveMode == WeaponFeedModeOverride.SingleLoad)
@@ -153,10 +148,7 @@ namespace CE_MagazineFed
                     targetReloadOneAtATime = true;
                     int magDiv = Mathf.Max(1, orig.magazineSize);
                     targetReloadTime = RoundToOneDecimal(orig.reloadTime / magDiv, orig.reloadTime);
-                    if (orig.hasStatReloadTime)
-                    {
-                        targetStatReloadTime = RoundToOneDecimal(orig.origStatReloadTime / magDiv, orig.origStatReloadTime);
-                    }
+                    targetStatReloadTime = RoundToOneDecimal(baseStatReload / magDiv, baseStatReload);
                     modified = true;
                 }
             }
@@ -164,8 +156,16 @@ namespace CE_MagazineFed
             props.reloadOneAtATime = targetReloadOneAtATime;
             props.reloadTime = targetReloadTime;
 
-            if (orig.hasStatReloadTime && def.statBases != null)
+            // CE's VerbPropertiesCE.useEquipmentStatValues defaults to true and CE injects CE_StatDefOf.ReloadTime
+            // into def.statBases at startup (potentially after our StaticConstructorOnStartup).
+            // Always synchronize CE_StatDefOf.ReloadTime so JobDriver_Reload, PortLoad, and ReloadMagazine use the updated value!
+            if (def.statBases != null && (modified || orig.hasStatReloadTime || def.statBases.StatListContains(CE_StatDefOf.ReloadTime)))
             {
+                def.SetStatBaseValue(CE_StatDefOf.ReloadTime, targetStatReloadTime);
+            }
+            else if (modified && def.statBases == null)
+            {
+                def.statBases = new List<StatModifier>();
                 def.SetStatBaseValue(CE_StatDefOf.ReloadTime, targetStatReloadTime);
             }
 

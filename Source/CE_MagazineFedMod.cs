@@ -579,6 +579,7 @@ namespace CE_MagazineFed
                 Log.Message($"[CE_MagazineFed] Fallback-injected CompProperties_WeaponMagazine into {added} additional weapon defs.");
             }
             MagazineUtility.CacheOriginalWeaponPropsAndApplyOverrides();
+            LongEventHandler.ExecuteWhenFinished(MagazineUtility.CacheOriginalWeaponPropsAndApplyOverrides);
         }
     }
 }
