@@ -291,13 +291,60 @@ namespace CE_MagazineFed
         }
 
         /// <summary>
-        /// True if the pawn's currently equipped primary weapon is a magazine-fed weapon.
+        /// True if CE's JobGiver_TakeAndEquip would try to auto-pickup loose ammo for a magazine-fed weapon
+        /// (checking Primary if equipped, otherwise first ranged weapon in inventory, matching CE's logic),
+        /// AND no non-magazine-fed weapon on the pawn shares that same AmmoSetDef.
         /// </summary>
-        public static bool HasEquippedMagFedWeapon(Pawn pawn)
+        public static bool ShouldBlockTakeAndEquipLooseAmmo(Pawn pawn)
         {
-            var primary = pawn?.equipment?.Primary;
-            if (primary == null) return false;
-            return IsMagazineFedWeapon(primary.TryGetComp<CompAmmoUser>());
+            if (!(CE_MagazineFedMod.Settings?.preventAutoPickupLooseAmmo ?? true)) return false;
+            if (pawn == null || !ShouldUseMagazineSystem(pawn)) return false;
+
+            CompAmmoUser targetComp = null;
+            if (pawn.equipment?.Primary != null)
+            {
+                targetComp = pawn.equipment.Primary.TryGetComp<CompAmmoUser>();
+            }
+            else
+            {
+                var compInv = pawn.TryGetComp<CompInventory>();
+                if (compInv?.rangedWeaponList != null)
+                {
+                    for (int i = 0; i < compInv.rangedWeaponList.Count; i++)
+                    {
+                        var ca = compInv.rangedWeaponList[i].TryGetComp<CompAmmoUser>();
+                        if (ca != null)
+                        {
+                            targetComp = ca;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (targetComp == null || !IsMagazineFedWeapon(targetComp) || targetComp.CurAmmoSet == null)
+            {
+                return false;
+            }
+
+            // Allow if pawn also carries a non-mag-fed weapon (e.g. pump shotgun, single-load revolver) using the same AmmoSet
+            AmmoSetDef targetSet = targetComp.CurAmmoSet;
+            if (pawn.inventory?.innerContainer != null)
+            {
+                var container = pawn.inventory.innerContainer;
+                for (int i = 0; i < container.Count; i++)
+                {
+                    if (container[i] is ThingWithComps twc && twc != targetComp.parent)
+                    {
+                        var ca = twc.TryGetComp<CompAmmoUser>();
+                        if (ca != null && ca.UseAmmo && ca.CurAmmoSet == targetSet && !IsMagazineFedWeapon(ca))
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
         }
 
         /// <summary>

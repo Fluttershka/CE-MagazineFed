@@ -82,17 +82,18 @@ namespace CE_MagazineFed
                 {
                     if (fill != null) loadedRounds.Add(fill);
                 }
-                if (MagazineUtility.IsMagazineFedWeapon(ca) && target > 0)
-                {
-                    hasInsertedMagazine = true;
-                    insertedMagAmmoSet = ca.CurAmmoSet;
-                    insertedMagCapacity = ca.MagSize;
-                }
             }
             else if (loadedRounds.Count > target)
             {
                 int remove = loadedRounds.Count - target;
                 loadedRounds.RemoveRange(0, remove);
+            }
+
+            if (MagazineUtility.IsMagazineFedWeapon(ca) && loadedRounds.Count > 0 && !hasInsertedMagazine)
+            {
+                hasInsertedMagazine = true;
+                insertedMagAmmoSet = ca.CurAmmoSet;
+                insertedMagCapacity = ca.MagSize;
             }
 
             if (loadedRounds.Count > 0 && loadedRounds[0] != null && ca.CurrentAmmo != loadedRounds[0])
@@ -222,6 +223,8 @@ namespace CE_MagazineFed
 
             var ca = CompAmmo;
             if (ca == null || !MagazineUtility.IsSingleLoadMultiCapacityWeapon(ca)) return false;
+            // Only player-controlled / colony pawns have custom mixed-ammo plans; avoid creating save entries for transient NPCs
+            if (pawn == null || (pawn.Faction != Faction.OfPlayer && !pawn.IsColonist && !pawn.IsColonyMech)) return false;
             SyncFromCompAmmo();
 
             if (loadedRounds.Count >= ca.MagSize) return false;

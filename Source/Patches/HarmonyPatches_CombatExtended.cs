@@ -115,7 +115,6 @@ namespace CE_MagazineFed
             {
                 return true;
             }
-            __instance.CompInventory?.UpdateInventory();
             __result = MagazineUtility.TotalRoundsInInventoryMagazines(__instance.Holder, __instance.CurAmmoSet, __instance.MagSize);
             return false;
         }
@@ -688,6 +687,167 @@ namespace CE_MagazineFed
         }
     }
 
+    /// <summary>
+    /// Command_Action that groups across multiple selected pawns on the gizmo bar without opening duplicate windows.
+    /// </summary>
+    internal class Command_SingleWindowAction : Command_Action
+    {
+        public override bool InheritInteractionsFrom(Gizmo other) => false;
+    }
+
+    /// <summary>
+    /// Tactical Port Load gizmo supporting both single-pawn and multi-select drafted pawns without per-frame allocations.
+    /// </summary>
+    internal class Command_PortLoad : Command_Action
+    {
+        public CompAmmoUser compAmmo;
+        private List<CompAmmoUser> groupedUsers;
+
+        public override bool GroupsWith(Gizmo other)
+        {
+            return other is Command_PortLoad;
+        }
+
+        public override bool InheritInteractionsFrom(Gizmo other) => false;
+
+        public override void MergeWith(Gizmo other)
+        {
+            if (other is Command_PortLoad otherCmd && otherCmd.compAmmo != null)
+            {
+                if (groupedUsers == null)
+                {
+                    groupedUsers = new List<CompAmmoUser> { compAmmo };
+                }
+                if (!groupedUsers.Contains(otherCmd.compAmmo))
+                {
+                    groupedUsers.Add(otherCmd.compAmmo);
+                }
+            }
+        }
+
+        public override void ProcessInput(Event ev)
+        {
+            base.ProcessInput(ev);
+            var users = groupedUsers ?? (compAmmo != null ? new List<CompAmmoUser> { compAmmo } : new List<CompAmmoUser>());
+            var draftedUsers = new List<CompAmmoUser>();
+            for (int i = 0; i < users.Count; i++)
+            {
+                var u = users[i];
+                if (u?.Wielder != null && u.Wielder.Drafted && !u.Wielder.Dead && u.parent != null && !u.parent.Destroyed)
+                {
+                    draftedUsers.Add(u);
+                }
+            }
+
+            if (draftedUsers.Count == 0) return;
+
+            // Aggregate compatible loose ammo across selected drafted SingleLoad weapon wielders
+            var ammoTotals = new Dictionary<AmmoDef, int>();
+            var ammoOrder = new List<AmmoDef>();
+
+            for (int uIdx = 0; uIdx < draftedUsers.Count; uIdx++)
+            {
+                var ca = draftedUsers[uIdx];
+                var container = ca.Wielder.inventory?.innerContainer;
+                if (ca.CurAmmoSet?.ammoTypes == null || container == null) continue;
+
+                foreach (var link in ca.CurAmmoSet.ammoTypes)
+                {
+                    AmmoDef ad = link.ammo;
+                    if (ad == null) continue;
+                    int count = 0;
+                    for (int i = 0; i < container.Count; i++)
+                    {
+                        if (container[i].def == ad && container[i].stackCount > 0)
+                        {
+                            count += container[i].stackCount;
+                        }
+                    }
+                    if (count > 0)
+                    {
+                        if (ammoTotals.TryGetValue(ad, out int cur))
+                        {
+                            ammoTotals[ad] = cur + count;
+                        }
+                        else
+                        {
+                            ammoTotals[ad] = count;
+                            ammoOrder.Add(ad);
+                        }
+                    }
+                }
+            }
+
+            var opts = new List<FloatMenuOption>();
+            bool singleUser = draftedUsers.Count == 1;
+            CompAmmoUser primaryCa = draftedUsers[0];
+            var primaryCm = primaryCa.parent.TryGetComp<CompWeaponMagazine>();
+            primaryCm?.SyncFromCompAmmo();
+            bool primaryFull = primaryCa.CurMagCount >= primaryCa.MagSize;
+            AmmoDef primaryChambered = primaryCm?.NextRound;
+
+            for (int i = 0; i < ammoOrder.Count; i++)
+            {
+                AmmoDef capturedAmmo = ammoOrder[i];
+                int totalCount = ammoTotals[capturedAmmo];
+                string shortName = MagazineUtility.GetShortAmmoLabel(capturedAmmo);
+
+                string label;
+                if (singleUser)
+                {
+                    string chamberTag = (primaryChambered == capturedAmmo && primaryCa.CurMagCount > 0)
+                        ? "CEMF_PortLoad_ChamberTag".Translate().RawText
+                        : "";
+                    label = (primaryFull
+                        ? "CEMF_PortLoad_OptionFull".Translate(shortName, totalCount).RawText
+                        : "CEMF_PortLoad_Option".Translate(shortName, totalCount).RawText) + chamberTag;
+                }
+                else
+                {
+                    label = "CEMF_PortLoad_Option".Translate(shortName, totalCount).RawText;
+                }
+
+                opts.Add(new FloatMenuOption(label, () =>
+                {
+                    for (int uIdx = 0; uIdx < draftedUsers.Count; uIdx++)
+                    {
+                        var ca = draftedUsers[uIdx];
+                        Pawn wielder = ca.Wielder;
+                        if (wielder == null || wielder.Dead || !wielder.Drafted || ca.parent == null || ca.parent.Destroyed) continue;
+                        if (ca.CurAmmoSet?.ammoTypes == null || !ca.CurAmmoSet.ammoTypes.Any(l => l.ammo == capturedAmmo)) continue;
+
+                        Thing sample = null;
+                        var container = wielder.inventory?.innerContainer;
+                        if (container != null)
+                        {
+                            for (int k = 0; k < container.Count; k++)
+                            {
+                                if (container[k].def == capturedAmmo && container[k].stackCount > 0)
+                                {
+                                    sample = container[k];
+                                    break;
+                                }
+                            }
+                        }
+                        if (sample == null) continue;
+
+                        var cm = ca.parent.TryGetComp<CompWeaponMagazine>();
+                        if (cm != null) cm.pendingPortLoadAmmo = capturedAmmo;
+                        Job job = JobMaker.MakeJob(CEMF_DefOf.CEMF_PortLoad, wielder, ca.parent, sample);
+                        job.playerForced = true;
+                        wielder.jobs.StartJob(job, JobCondition.InterruptForced, null, wielder.CurJob?.def != job.def, true);
+                    }
+                }, capturedAmmo));
+            }
+
+            if (opts.Count == 0)
+            {
+                opts.Add(new FloatMenuOption("CEMF_PortLoad_NoAmmo".Translate(), null));
+            }
+            Find.WindowStack.Add(new FloatMenu(opts));
+        }
+    }
+
     [HarmonyPatch(typeof(CompAmmoUser), nameof(CompAmmoUser.CompGetGizmosExtra))]
     public static class Patch_CompAmmoUser_CompGetGizmosExtra
     {
@@ -703,7 +863,7 @@ namespace CE_MagazineFed
                 && MagazineUtility.ShouldUseMagazineSystem(__instance.Wielder)
                 && MagazineUtility.IsManagedWeapon(__instance))
             {
-                yield return new Command_Action
+                yield return new Command_SingleWindowAction
                 {
                     defaultLabel = "CEMF_Gizmo_ManageLabel".Translate(),
                     defaultDesc = "CEMF_Gizmo_ManageDesc".Translate(),
@@ -714,80 +874,24 @@ namespace CE_MagazineFed
                     }
                 };
 
-                // Port Load gizmo for SingleLoad multi-capacity weapons
+                // Port Load gizmo for SingleLoad multi-capacity weapons (Drafted only)
                 if (MagazineUtility.IsSingleLoadMultiCapacityWeapon(__instance))
                 {
                     Pawn wielder = __instance.Wielder;
-                    CompAmmoUser ca = __instance;
-                    var availAmmo = new List<(AmmoDef ammo, int count, Thing sample)>();
-                    if (ca.CurAmmoSet?.ammoTypes != null && wielder.inventory?.innerContainer != null)
+                    var portCmd = new Command_PortLoad
                     {
-                        var container = wielder.inventory.innerContainer;
-                        foreach (var link in ca.CurAmmoSet.ammoTypes)
-                        {
-                            AmmoDef ad = link.ammo;
-                            if (ad == null) continue;
-                            int total = 0;
-                            Thing sample = null;
-                            for (int i = 0; i < container.Count; i++)
-                            {
-                                if (container[i].def == ad && container[i].stackCount > 0)
-                                {
-                                    total += container[i].stackCount;
-                                    if (sample == null) sample = container[i];
-                                }
-                            }
-                            if (total > 0)
-                            {
-                                availAmmo.Add((ad, total, sample));
-                            }
-                        }
-                    }
-
-                    var portCmd = new Command_Action
-                    {
+                        compAmmo = __instance,
                         defaultLabel = "CEMF_Gizmo_PortLoadLabel".Translate(),
                         defaultDesc = "CEMF_Gizmo_PortLoadDesc".Translate(),
                         icon = CEMF_Textures.PortLoad,
-                        action = () =>
-                        {
-                            var cm = ca.parent.TryGetComp<CompWeaponMagazine>();
-                            cm?.SyncFromCompAmmo();
-                            bool isFull = ca.CurMagCount >= ca.MagSize;
-                            AmmoDef chambered = cm?.NextRound;
-
-                            var opts = new List<FloatMenuOption>();
-                            foreach (var item in availAmmo)
-                            {
-                                AmmoDef capturedAmmo = item.ammo;
-                                Thing capturedSample = item.sample;
-                                string shortName = MagazineUtility.GetShortAmmoLabel(capturedAmmo);
-                                string chamberTag = (chambered == capturedAmmo && ca.CurMagCount > 0)
-                                    ? "CEMF_PortLoad_ChamberTag".Translate().RawText
-                                    : "";
-                                string label = (isFull
-                                    ? "CEMF_PortLoad_OptionFull".Translate(shortName, item.count).RawText
-                                    : "CEMF_PortLoad_Option".Translate(shortName, item.count).RawText) + chamberTag;
-
-                                opts.Add(new FloatMenuOption(label, () =>
-                                {
-                                    if (wielder == null || wielder.Dead || ca.parent == null || ca.parent.Destroyed) return;
-                                    if (cm != null) cm.pendingPortLoadAmmo = capturedAmmo;
-                                    Job job = JobMaker.MakeJob(CEMF_DefOf.CEMF_PortLoad, wielder, ca.parent, capturedSample);
-                                    job.playerForced = true;
-                                    wielder.jobs.StartJob(job, JobCondition.InterruptForced, null, wielder.CurJob?.def != job.def, true);
-                                }, capturedAmmo));
-                            }
-
-                            if (opts.Count == 0)
-                            {
-                                opts.Add(new FloatMenuOption("CEMF_PortLoad_NoAmmo".Translate(), null));
-                            }
-                            Find.WindowStack.Add(new FloatMenu(opts));
-                        }
+                        action = () => { }
                     };
 
-                    if (availAmmo.Count == 0)
+                    if (!wielder.Drafted)
+                    {
+                        portCmd.Disable("CEMF_PortLoad_MustDraft".Translate());
+                    }
+                    else if (!MagazineUtility.HasCompatibleLooseAmmoInInventory(wielder, __instance.CurAmmoSet))
                     {
                         portCmd.Disable("CEMF_PortLoad_NoAmmo".Translate());
                     }
@@ -819,7 +923,7 @@ namespace CE_MagazineFed
             var managed = MagazineUtility.GetManagedWeapons(__instance);
             if (managed.Count > 0)
             {
-                yield return new Command_Action
+                yield return new Command_SingleWindowAction
                 {
                     defaultLabel = "CEMF_Gizmo_ManageLabel".Translate(),
                     defaultDesc = "CEMF_Gizmo_ManageDesc".Translate(),
@@ -966,10 +1070,7 @@ namespace CE_MagazineFed
     {
         public static bool Prefix(Pawn pawn, ref float __result)
         {
-            if (!(CE_MagazineFedMod.Settings?.preventAutoPickupLooseAmmo ?? true)) return true;
-            if (pawn == null || !MagazineUtility.ShouldUseMagazineSystem(pawn)) return true;
-
-            if (MagazineUtility.HasEquippedMagFedWeapon(pawn))
+            if (MagazineUtility.ShouldBlockTakeAndEquipLooseAmmo(pawn))
             {
                 __result = 0f;
                 return false;
@@ -983,10 +1084,7 @@ namespace CE_MagazineFed
     {
         public static bool Prefix(Pawn pawn, ref Job __result)
         {
-            if (!(CE_MagazineFedMod.Settings?.preventAutoPickupLooseAmmo ?? true)) return true;
-            if (pawn == null || !MagazineUtility.ShouldUseMagazineSystem(pawn)) return true;
-
-            if (MagazineUtility.HasEquippedMagFedWeapon(pawn))
+            if (MagazineUtility.ShouldBlockTakeAndEquipLooseAmmo(pawn))
             {
                 __result = null;
                 return false;

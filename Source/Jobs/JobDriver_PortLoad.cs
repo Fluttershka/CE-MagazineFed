@@ -48,6 +48,7 @@ namespace CE_MagazineFed
 
         private bool IsInvalidState()
         {
+            if (pawn == null || !pawn.Drafted) return true;
             if (Weapon == null || CompAmmo == null || CompMag == null || targetAmmoDef == null) return true;
             if (!MagazineUtility.IsSingleLoadMultiCapacityWeapon(CompAmmo)) return true;
             if (reloadingEquipped && pawn.equipment?.Primary != Weapon) return true;

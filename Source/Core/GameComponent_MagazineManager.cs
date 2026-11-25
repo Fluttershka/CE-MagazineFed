@@ -20,7 +20,10 @@ namespace CE_MagazineFed
 
         public static GameComponent_MagazineManager Instance => Current.Game?.GetComponent<GameComponent_MagazineManager>();
 
-        public GameComponent_MagazineManager(Game game) { }
+        public GameComponent_MagazineManager(Game game)
+        {
+            JobGiver_PackMagazines.ClearCooldownCache();
+        }
 
         public override void GameComponentTick()
         {
