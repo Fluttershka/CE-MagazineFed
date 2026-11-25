@@ -61,8 +61,7 @@
   <CEMF_Gizmo_ManageLabel>Magazines</CEMF_Gizmo_ManageLabel>
   <CEMF_Gizmo_ManageDesc>Open the Magazine &amp; Ammo Loadout Manager to configure magazine counts and mixed-ammo round order for this colonist.</CEMF_Gizmo_ManageDesc>
   <CEMF_Gizmo_PortLoadLabel>Port Load</CEMF_Gizmo_PortLoadLabel>
-  <CEMF_Gizmo_PortLoadDesc>(Drafted only) Temporarily load one chosen compatible round from inventory directly into slot #1 (fired next). When full, ejects the currently chambered round back into inventory first.</CEMF_Gizmo_PortLoadDesc>
-  <CEMF_PortLoad_MustDraft>Must be drafted</CEMF_PortLoad_MustDraft>
+  <CEMF_Gizmo_PortLoadDesc>Temporarily load one chosen compatible round from inventory directly into slot #1 (fired next). When full, ejects the currently chambered round back into inventory first.</CEMF_Gizmo_PortLoadDesc>
   <CEMF_PortLoad_NoAmmo>No compatible loose ammo in inventory</CEMF_PortLoad_NoAmmo>
   <CEMF_PortLoad_Option>Port load {0} (×{1})</CEMF_PortLoad_Option>
   <CEMF_PortLoad_OptionFull>Swap chamber → {0} (×{1})</CEMF_PortLoad_OptionFull>

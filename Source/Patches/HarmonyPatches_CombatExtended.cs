@@ -874,8 +874,8 @@ namespace CE_MagazineFed
                     }
                 };
 
-                // Port Load gizmo for SingleLoad multi-capacity weapons (Drafted only)
-                if (MagazineUtility.IsSingleLoadMultiCapacityWeapon(__instance))
+                // Port Load gizmo for SingleLoad multi-capacity weapons (only shown when Drafted)
+                if (__instance.Wielder.Drafted && MagazineUtility.IsSingleLoadMultiCapacityWeapon(__instance))
                 {
                     Pawn wielder = __instance.Wielder;
                     var portCmd = new Command_PortLoad
@@ -887,11 +887,7 @@ namespace CE_MagazineFed
                         action = () => { }
                     };
 
-                    if (!wielder.Drafted)
-                    {
-                        portCmd.Disable("CEMF_PortLoad_MustDraft".Translate());
-                    }
-                    else if (!MagazineUtility.HasCompatibleLooseAmmoInInventory(wielder, __instance.CurAmmoSet))
+                    if (!MagazineUtility.HasCompatibleLooseAmmoInInventory(wielder, __instance.CurAmmoSet))
                     {
                         portCmd.Disable("CEMF_PortLoad_NoAmmo".Translate());
                     }
