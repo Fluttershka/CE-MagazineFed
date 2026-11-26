@@ -692,8 +692,8 @@ namespace CE_MagazineFed
             if (pawn == null || pawn.Dead || pawn.health?.hediffSet == null) return;
             if (pawn.RaceProps == null || !pawn.RaceProps.IsFlesh || pawn.RaceProps.IsMechanoid) return;
 
-            // ~0.4% per round during idle packing (~11% per full 30-rd mag), ~0.8% per round under hurried combat field-packing
-            float chance = isFieldPacking ? 0.008f : 0.004f;
+            // 0.1% per round during idle packing, 0.2% per round under hurried combat field-packing
+            float chance = isFieldPacking ? 0.002f : 0.001f;
             if (!Rand.Chance(chance)) return;
 
             BodyPartRecord rightThumb = FindBiologicalRightThumb(pawn);

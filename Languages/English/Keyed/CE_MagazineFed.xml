@@ -21,7 +21,7 @@
   <CEMF_Settings_EmptyCleanupSeconds>Auto-cleanup delay for unowned empty magazines: {0}s</CEMF_Settings_EmptyCleanupSeconds>
   <CEMF_Settings_DestroyShellOnUnload>Automatically recycle/remove empty magazine shell after unloading</CEMF_Settings_DestroyShellOnUnload>
   <CEMF_Settings_ShowMultiColorBar>Show mixed-ammo color strip on weapon ammo gizmo</CEMF_Settings_ShowMultiColorBar>
-  <CEMF_Settings_EnableThumbInjury>Chance to injure right thumb while packing magazines (Off by default)</CEMF_Settings_EnableThumbInjury>
+  <CEMF_Settings_EnableThumbInjury>Chance to injure right thumb while packing magazines (Easter egg, Off by default)</CEMF_Settings_EnableThumbInjury>
   <CEMF_Settings_TabGeneral>General Settings</CEMF_Settings_TabGeneral>
   <CEMF_Settings_TabWeapons>Weapon Feed Modes</CEMF_Settings_TabWeapons>
   <CEMF_Settings_FilterModAll>Mod Source: All ({0})</CEMF_Settings_FilterModAll>

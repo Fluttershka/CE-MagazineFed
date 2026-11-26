@@ -21,7 +21,7 @@
   <CEMF_Settings_EmptyCleanupSeconds>无主空弹匣自动清理延迟：{0} 秒</CEMF_Settings_EmptyCleanupSeconds>
   <CEMF_Settings_DestroyShellOnUnload>清空弹匣为散弹后自动回收销毁空弹匣壳</CEMF_Settings_DestroyShellOnUnload>
   <CEMF_Settings_ShowMultiColorBar>在武器弹药状态栏显示混装弹种色带</CEMF_Settings_ShowMultiColorBar>
-  <CEMF_Settings_EnableThumbInjury>压装弹匣时有概率伤到右手大拇指（趣味拟真，默认关闭）</CEMF_Settings_EnableThumbInjury>
+  <CEMF_Settings_EnableThumbInjury>压装弹匣时有概率伤到右手大拇指（彩蛋，默认关闭）</CEMF_Settings_EnableThumbInjury>
   <CEMF_Settings_TabGeneral>常规设置</CEMF_Settings_TabGeneral>
   <CEMF_Settings_TabWeapons>武器供弹模式</CEMF_Settings_TabWeapons>
   <CEMF_Settings_FilterModAll>Mod 来源：全部 ({0})</CEMF_Settings_FilterModAll>
