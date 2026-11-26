@@ -77,7 +77,7 @@
   <CEMF_Menu_NoMagOrAmmo>无可用弹匣或散弹</CEMF_Menu_NoMagOrAmmo>
   <CEMF_Mote_SwappingMag>更换弹匣...</CEMF_Mote_SwappingMag>
   <CEMF_Mote_FieldPacking>现场压弹中...</CEMF_Mote_FieldPacking>
-  <CEMF_Mote_PackingMag>整理压弹中...</CEMF_Mote_PackingMag>
+  <CEMF_Mote_PackingMag>压装弹匣中...</CEMF_Mote_PackingMag>
   <CEMF_Mote_ThumbInjured>戳伤大拇指！</CEMF_Mote_ThumbInjured>
   <CEMF_Msg_ThumbInjured>{0} 在压装弹匣时不慎伤到了右手大拇指。</CEMF_Msg_ThumbInjured>
   <CEMF_Gizmo_NextRound>下一发：{0}</CEMF_Gizmo_NextRound>
