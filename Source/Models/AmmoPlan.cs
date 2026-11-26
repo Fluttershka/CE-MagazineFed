@@ -397,12 +397,12 @@ namespace CE_MagazineFed
             return null;
         }
 
-        public PawnWeaponAmmoConfig GetOrCreateConfig(AmmoSetDef ammoSet, int capacity, bool isSingleLoad, AmmoDef defaultAmmo = null)
+        public PawnWeaponAmmoConfig GetOrCreateConfig(AmmoSetDef ammoSet, int capacity, bool isSingleLoad, AmmoDef defaultAmmo = null, int? initialMagCountOverride = null)
         {
             var existing = GetConfig(ammoSet, capacity, isSingleLoad);
             if (existing != null) return existing;
 
-            int initMags = isSingleLoad ? 1 : (CE_MagazineFedMod.Settings?.defaultMagCount ?? 4);
+            int initMags = isSingleLoad ? 1 : (initialMagCountOverride ?? (CE_MagazineFedMod.Settings?.defaultMagCount ?? 4));
             var created = new PawnWeaponAmmoConfig(ammoSet, capacity, isSingleLoad, defaultAmmo, initMags);
             configs.Add(created);
             return created;

@@ -20,6 +20,15 @@ namespace CE_MagazineFed
             LastFailTick.Clear();
         }
 
+        public static bool IsOnCooldown(Pawn pawn)
+        {
+            if (pawn == null || Find.TickManager == null) return false;
+            int now = Find.TickManager.TicksGame;
+            return LastFailTick.TryGetValue(pawn.thingIDNumber, out int lastFail)
+                && now >= lastFail
+                && now - lastFail < CooldownTicksAfterNoAmmo;
+        }
+
         public static void NotifyNoProgress(Pawn pawn)
         {
             if (pawn != null && Find.TickManager != null)
@@ -85,12 +94,148 @@ namespace CE_MagazineFed
 
         public static bool CanAttemptPacking(Pawn pawn)
         {
-            if (pawn == null || pawn.Dead || pawn.Downed || pawn.Drafted || !pawn.Spawned || pawn.Map == null) return false;
+            return CanAttemptPacking(pawn, allowDrafted: false);
+        }
+
+        public static bool CanAttemptPacking(Pawn pawn, bool allowDrafted)
+        {
+            if (pawn == null || pawn.Dead || pawn.Downed || !pawn.Spawned || pawn.Map == null) return false;
+            if (!allowDrafted && pawn.Drafted) return false;
             if (pawn.InMentalState) return false;
             if (!pawn.RaceProps.IsMechanoid && (pawn.health?.capacities == null || !pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation))) return false;
             if (!MagazineUtility.ShouldUseMagazineSystem(pawn)) return false;
             if (pawn.CurJobDef == CEMF_DefOf.CEMF_PackMagazines) return false;
             return true;
+        }
+
+        /// <summary>
+        /// True if `pawn` can pack or reorder at least one magazine using ONLY loose ammo & magazines
+        /// already carried in inventory (no stockpile fetching or map magazine recycling).
+        /// Used for drafted move-while-packing.
+        /// </summary>
+        public static bool HasInventoryOnlyPackingWork(Pawn pawn)
+        {
+            if (pawn == null || pawn.Dead || pawn.inventory?.innerContainer == null) return false;
+            var mgr = GameComponent_MagazineManager.Instance;
+            if (mgr == null) return false;
+
+            var weapons = MagazineUtility.GetManagedWeapons(pawn);
+            var checkedConfigs = new HashSet<PawnWeaponAmmoConfig>();
+
+            for (int i = 0; i < weapons.Count; i++)
+            {
+                var ca = weapons[i].TryGetComp<CompAmmoUser>();
+                if (!MagazineUtility.IsMagazineFedWeapon(ca)) continue;
+                var cfg = mgr.GetOrCreateConfig(pawn, ca);
+                if (cfg == null || cfg.isSingleLoad) continue;
+
+                if (checkedConfigs.Add(cfg))
+                {
+                    var invMags = MagazineUtility.GetMagazinesInInventory(pawn, cfg.ammoSet, cfg.capacity);
+                    for (int m = 0; m < invMags.Count; m++)
+                    {
+                        var mag = invMags[m];
+                        int slot = mag.preferredPlanIndex >= 0 && mag.preferredPlanIndex < cfg.targetTotalMags ? mag.preferredPlanIndex : 0;
+                        var plan = cfg.GetPlan(slot);
+                        if (!plan.MatchesExactly(mag.rounds) && CanProgressMagFromInventoryOnly(pawn, plan, mag.rounds))
+                        {
+                            return true;
+                        }
+                    }
+
+                    // Check if a missing magazine can be provisioned and packed immediately from inventory loose ammo
+                    int inGun = 0;
+                    var usedSlots = new HashSet<int>();
+                    for (int w = 0; w < weapons.Count; w++)
+                    {
+                        var wCa = weapons[w].TryGetComp<CompAmmoUser>();
+                        if (!MagazineUtility.IsMagazineFedWeapon(wCa) || wCa.CurAmmoSet != cfg.ammoSet || wCa.MagSize != cfg.capacity) continue;
+                        var wCm = weapons[w].TryGetComp<CompWeaponMagazine>();
+                        if (wCm != null && wCm.hasInsertedMagazine)
+                        {
+                            inGun++;
+                            if (wCm.insertedMagPlanIndex >= 0 && wCm.insertedMagPlanIndex < cfg.targetTotalMags) usedSlots.Add(wCm.insertedMagPlanIndex);
+                        }
+                    }
+                    for (int m = 0; m < invMags.Count; m++)
+                    {
+                        if (invMags[m].preferredPlanIndex >= 0 && invMags[m].preferredPlanIndex < cfg.targetTotalMags) usedSlots.Add(invMags[m].preferredPlanIndex);
+                    }
+                    if ((invMags.Count + inGun) < cfg.targetTotalMags
+                        && (CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true)
+                        && MagazineUtility.CanFitNewMagazine(pawn, cfg.ammoSet, cfg.capacity, includeCompatibleLooseAmmoReclaim: true))
+                    {
+                        int freeSlot = 0;
+                        for (int s = 0; s < cfg.targetTotalMags; s++)
+                        {
+                            if (!usedSlots.Contains(s))
+                            {
+                                freeSlot = s;
+                                break;
+                            }
+                        }
+                        if (CanProgressMagFromInventoryOnly(pawn, cfg.GetPlan(freeSlot), null))
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                // Check this weapon's inserted magazine
+                var cm = weapons[i].TryGetComp<CompWeaponMagazine>();
+                if (cm != null && cm.hasInsertedMagazine)
+                {
+                    cm.SyncFromCompAmmo();
+                    int slot = cm.insertedMagPlanIndex >= 0 && cm.insertedMagPlanIndex < cfg.targetTotalMags ? cm.insertedMagPlanIndex : 0;
+                    var plan = cfg.GetPlan(slot);
+                    if (!plan.MatchesExactly(cm.loadedRounds) && CanProgressMagFromInventoryOnly(pawn, plan, cm.loadedRounds))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private static bool CanProgressMagFromInventoryOnly(Pawn pawn, AmmoPlan plan, List<AmmoDef> curRounds)
+        {
+            plan.Normalize();
+            var needed = plan.GetCountsByDef();
+            var cur = new Dictionary<AmmoDef, int>();
+            if (curRounds != null)
+            {
+                for (int i = 0; i < curRounds.Count; i++)
+                {
+                    var d = curRounds[i];
+                    if (d == null) continue;
+                    if (cur.TryGetValue(d, out int c)) cur[d] = c + 1;
+                    else cur[d] = 1;
+                }
+            }
+
+            bool sameSet = true;
+            foreach (var kv in needed)
+            {
+                if (!cur.TryGetValue(kv.Key, out int c) || c != kv.Value)
+                {
+                    sameSet = false;
+                    break;
+                }
+            }
+            if (sameSet && curRounds != null && curRounds.Count == plan.capacity)
+            {
+                return true;
+            }
+
+            foreach (var kv in needed)
+            {
+                cur.TryGetValue(kv.Key, out int have);
+                if (kv.Value > have && MagazineUtility.CountLooseAmmoInInventory(pawn, kv.Key) > 0)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public static bool HasActionablePackingWork(Pawn pawn)
@@ -120,12 +265,37 @@ namespace CE_MagazineFed
                     int inGun = (cm != null && cm.hasInsertedMagazine) ? 1 : 0;
                     if ((invMags.Count + inGun) < cfg.targetTotalMags)
                     {
-                        bool canProvision = CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true;
+                        bool autoProvision = CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true;
+                        bool canFitDirectly = autoProvision && MagazineUtility.CanFitNewMagazine(pawn, cfg.ammoSet, cfg.capacity, includeCompatibleLooseAmmoReclaim: false);
                         bool canRecycle = (CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true)
                                           && GameComponent_MagazineManager.FindBestCompatibleMapMagazine(pawn, cfg.ammoSet, cfg.capacity) != null;
-                        if (canProvision || canRecycle)
+                        if (canFitDirectly || canRecycle)
                         {
                             return true;
+                        }
+
+                        if (autoProvision && MagazineUtility.CanFitNewMagazine(pawn, cfg.ammoSet, cfg.capacity, includeCompatibleLooseAmmoReclaim: true))
+                        {
+                            // Deferred tight magazine: actionable only if we have or can fetch ammo for its slot
+                            var usedSlots = new HashSet<int>();
+                            if (cm != null && cm.hasInsertedMagazine && cm.insertedMagPlanIndex >= 0) usedSlots.Add(cm.insertedMagPlanIndex);
+                            for (int m = 0; m < invMags.Count; m++)
+                            {
+                                if (invMags[m].preferredPlanIndex >= 0) usedSlots.Add(invMags[m].preferredPlanIndex);
+                            }
+                            int freeSlot = 0;
+                            for (int s = 0; s < cfg.targetTotalMags; s++)
+                            {
+                                if (!usedSlots.Contains(s))
+                                {
+                                    freeSlot = s;
+                                    break;
+                                }
+                            }
+                            if (CanProgressMag(pawn, cfg.GetPlan(freeSlot), null))
+                            {
+                                return true;
+                            }
                         }
                     }
 

@@ -60,9 +60,12 @@ namespace CE_MagazineFed
                 }
                 if (CE_MagazineFedMod.Settings?.enableForMechanoids ?? false)
                 {
-                    foreach (Pawn p in map.mapPawns.SpawnedColonyMechs)
+                    foreach (Pawn p in map.mapPawns.PawnsInFaction(Faction.OfPlayer))
                     {
-                        if (!p.Dead && MagazineUtility.GetManagedWeapons(p).Count > 0) pawns.Add(p);
+                        if (!p.Dead && MagazineUtility.IsPlayerControlledMechanoid(p) && MagazineUtility.GetManagedWeapons(p).Count > 0)
+                        {
+                            pawns.Add(p);
+                        }
                     }
                 }
             }
@@ -240,56 +243,7 @@ namespace CE_MagazineFed
 
         private void OrderPackNow(Pawn pawn)
         {
-            if (pawn == null || pawn.Dead) return;
-
-            if (pawn.Drafted)
-            {
-                Messages.Message("CEMF_UI_PackNowDrafted".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.RejectInput, false);
-                return;
-            }
-            if (pawn.CurJobDef == CEMF_DefOf.CEMF_PackMagazines)
-            {
-                Messages.Message("CEMF_UI_PackNowAlready".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.NeutralEvent, false);
-                return;
-            }
-            if (!JobGiver_PackMagazines.CanAttemptPacking(pawn))
-            {
-                Messages.Message("CEMF_UI_PackNowIncapable".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.RejectInput, false);
-                return;
-            }
-
-            var mgr = GameComponent_MagazineManager.Instance;
-            if (mgr != null)
-            {
-                bool preferRecycle = CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true;
-                foreach (var w in MagazineUtility.GetManagedWeapons(pawn))
-                {
-                    var ca = w.TryGetComp<CompAmmoUser>();
-                    if (MagazineUtility.IsMagazineFedWeapon(ca))
-                    {
-                        var cfg = mgr.GetOrCreateConfig(pawn, ca);
-                        if (cfg != null) mgr.EnsureMagazinesForConfig(pawn, cfg, allowCreateNew: !preferRecycle);
-                    }
-                }
-            }
-            if (!JobGiver_PackMagazines.HasActionablePackingWork(pawn))
-            {
-                if (mgr != null && mgr.PawnNeedsPacking(pawn, out var missing) && missing.Count > 0)
-                {
-                    var compInv = pawn.TryGetComp<CompInventory>();
-                    bool blockedBySpace = compInv != null && missing.All(kv => kv.Key == null || !compInv.CanFitInInventory(kv.Key, out int fit) || fit <= 0);
-                    if (blockedBySpace)
-                    {
-                        Messages.Message("CEMF_UI_PackNowInventoryFull".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.RejectInput, false);
-                        return;
-                    }
-                }
-                Messages.Message("CEMF_UI_PackNowNotNeeded".Translate(pawn.LabelShortCap), MessageTypeDefOf.NeutralEvent, false);
-                return;
-            }
-            Job job = JobMaker.MakeJob(CEMF_DefOf.CEMF_PackMagazines, pawn);
-            pawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
-            Messages.Message("CEMF_UI_PackNowOrdered".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.PositiveEvent, false);
+            MagazineUtility.TryOrderPackNow(pawn, showMessages: true);
         }
 
         private void DrawColonistSidebar(Rect rect)

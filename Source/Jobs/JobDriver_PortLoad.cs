@@ -89,7 +89,13 @@ namespace CE_MagazineFed
 
             // Wait toil: always 1.0x the weapon's single-round reloadTime
             Toil waitToil = new Toil { actor = pawn };
-            waitToil.initAction = () => waitToil.actor.pather?.StopDead();
+            waitToil.initAction = () =>
+            {
+                if (!MoveWhileReloadUtility.CanMoveWhileReloading(waitToil.actor))
+                {
+                    waitToil.actor.pather?.StopDead();
+                }
+            };
             waitToil.defaultCompleteMode = ToilCompleteMode.Delay;
 
             float reloadTime = CompAmmo?.Props?.reloadTime ?? 1.0f;

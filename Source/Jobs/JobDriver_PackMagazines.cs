@@ -23,7 +23,7 @@ namespace CE_MagazineFed
         private Thing currentPickupThing;
         private int currentPickupCount;
         private int pickupTripsDone;
-        private const int MaxPickupTrips = 10;
+        private const int MaxPickupTrips = 20;
 
         private Thing_CEMagazine currentPickupMag;
         private int magPickupTripsDone;
@@ -33,7 +33,12 @@ namespace CE_MagazineFed
         private AmmoPlan currentPackingPlan;
         private int totalRoundsToPackEstimate = 1;
         private int roundsPackedCount;
+        private int roundsPackedThisWave;
+        private int pendingBatchCount = 1;
         private bool madeAnyProgress;
+        private bool isInPackingPhase;
+
+        public bool IsInPackingPhase => isInPackingPhase;
 
         public override bool TryMakePreToilReservations(bool errorOnFailed) => true;
 
@@ -48,7 +53,10 @@ namespace CE_MagazineFed
             Scribe_References.Look(ref currentPackingMag, "currentPackingMag");
             Scribe_Values.Look(ref totalRoundsToPackEstimate, "totalRoundsToPackEstimate", 1);
             Scribe_Values.Look(ref roundsPackedCount, "roundsPackedCount", 0);
+            Scribe_Values.Look(ref roundsPackedThisWave, "roundsPackedThisWave", 0);
+            Scribe_Values.Look(ref pendingBatchCount, "pendingBatchCount", 1);
             Scribe_Values.Look(ref madeAnyProgress, "madeAnyProgress", false);
+            Scribe_Values.Look(ref isInPackingPhase, "isInPackingPhase", false);
         }
 
         public override string GetReport()
@@ -67,6 +75,7 @@ namespace CE_MagazineFed
         private bool FindNextMapMagazineToRecycle(out Thing_CEMagazine mapMag)
         {
             mapMag = null;
+            if (pawn == null || pawn.Drafted) return false;
             if (!(CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true)) return false;
             if (magPickupTripsDone >= MaxMagPickupTrips) return false;
             if (pawn.Map == null) return false;
@@ -104,6 +113,7 @@ namespace CE_MagazineFed
         {
             ammoStack = null;
             takeCount = 0;
+            if (pawn == null || pawn.Drafted) return false;
             if (!(CE_MagazineFedMod.Settings?.fetchAmmoFromStockpile ?? true)) return false;
             if (pickupTripsDone >= MaxPickupTrips) return false;
             if (pawn.Map == null) return false;
@@ -234,7 +244,7 @@ namespace CE_MagazineFed
             return false;
         }
 
-        private void EnsureEmptyMagazinesProvisioned()
+        private void EnsureEmptyMagazinesProvisioned(bool reservePackingHeadroom, bool allowLooseAmmoBulkReclaim)
         {
             var mgr = GameComponent_MagazineManager.Instance;
             if (mgr == null) return;
@@ -249,10 +259,117 @@ namespace CE_MagazineFed
                 if (cfg == null || !processed.Add(cfg)) continue;
 
                 int before = MagazineUtility.GetMagazinesInInventory(pawn, cfg.ammoSet, cfg.capacity).Count;
-                mgr.EnsureMagazinesForConfig(pawn, cfg, allowCreateNew: true);
+                mgr.EnsureMagazinesForConfig(pawn, cfg, allowCreateNew: true, reservePackingHeadroom: reservePackingHeadroom, allowLooseAmmoBulkReclaim: allowLooseAmmoBulkReclaim);
                 int after = MagazineUtility.GetMagazinesInInventory(pawn, cfg.ammoSet, cfg.capacity).Count;
                 if (after != before) madeAnyProgress = true;
             }
+        }
+
+        private AmmoPlan ResolvePlanForMag(Thing_CEMagazine mag)
+        {
+            if (mag == null) return null;
+            var mgr = GameComponent_MagazineManager.Instance;
+            if (mgr == null) return null;
+            var weapons = MagazineUtility.GetManagedWeapons(pawn);
+            for (int i = 0; i < weapons.Count; i++)
+            {
+                var ca = weapons[i].TryGetComp<CompAmmoUser>();
+                if (!MagazineUtility.IsMagazineFedWeapon(ca)) continue;
+                if (ca.CurAmmoSet != mag.ammoSet || ca.MagSize != mag.capacity) continue;
+                var cfg = mgr.GetOrCreateConfig(pawn, ca);
+                if (cfg != null)
+                {
+                    int slotIdx = mag.preferredPlanIndex >= 0 && mag.preferredPlanIndex < cfg.targetTotalMags ? mag.preferredPlanIndex : 0;
+                    return cfg.GetPlan(slotIdx);
+                }
+            }
+            return null;
+        }
+
+        private int CountConsecutivePackableRounds(Thing_CEMagazine mag, AmmoPlan plan, int maxCheck)
+        {
+            if (mag == null || plan == null) return 0;
+            plan.Normalize();
+            int simCount = mag.rounds.Count;
+            bool isPrefix = simCount == 0 || plan.IsPrefixMatch(mag.rounds);
+            bool isSuffix = !isPrefix && plan.IsSuffixMatch(mag.rounds);
+            if (!isPrefix && !isSuffix) return 0;
+
+            var available = new Dictionary<AmmoDef, int>();
+            int limit = Math.Min(maxCheck, plan.capacity - simCount);
+            int count = 0;
+
+            for (int k = 0; k < limit; k++)
+            {
+                AmmoDef needed = isPrefix
+                    ? plan.slots[simCount]
+                    : plan.slots[(plan.capacity - simCount) - 1];
+                if (needed == null) break;
+
+                if (!available.TryGetValue(needed, out int have))
+                {
+                    have = MagazineUtility.CountLooseAmmoInInventory(pawn, needed);
+                }
+                if (have <= 0) break;
+
+                available[needed] = have - 1;
+                count++;
+                simCount++;
+            }
+            return count;
+        }
+
+        private bool ShouldAbortMechPacking()
+        {
+            if (pawn == null || pawn.RaceProps == null || !pawn.RaceProps.IsMechanoid) return false;
+            if (pawn.Drafted)
+            {
+                bool allowDraftedMovePack = job != null && job.playerForced && MoveWhileReloadUtility.CanMoveWhileReloading(pawn);
+                if (!allowDraftedMovePack) return true;
+            }
+
+            if (ModsConfig.BiotechActive)
+            {
+                if (RestUtility.IsCharging(pawn)) return true;
+                if (pawn.needs?.energy != null && (pawn.needs.energy.IsLowEnergySelfShutdown || pawn.needs.energy.IsSelfShutdown))
+                {
+                    return true;
+                }
+            }
+
+            if (job != null && job.playerForced) return false;
+
+            if (ModsConfig.BiotechActive)
+            {
+                MechWorkModeDef mode = MechanitorUtility.GetMechWorkMode(pawn);
+                if (mode == MechWorkModeDefOf.Recharge || mode == MechWorkModeDefOf.SelfShutdown)
+                {
+                    return true;
+                }
+                if (mode == MechWorkModeDefOf.Escort)
+                {
+                    if (!(CE_MagazineFedMod.Settings?.allowEscortMechPacking ?? true)) return true;
+                    Pawn overseer = MechanitorUtility.GetOverseer(pawn);
+                    if (overseer == null || overseer.Dead || overseer.Downed || overseer.Drafted || !overseer.Spawned || overseer.Map != pawn.Map)
+                    {
+                        return true;
+                    }
+                    if (Find.TickManager.TicksGame - overseer.LastAttackTargetTick < 180)
+                    {
+                        return true;
+                    }
+                    if (pawn.IsHashIntervalTick(30) && GameComponent_MagazineManager.IsHostileThreatNear(overseer, 35f))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if (pawn.IsHashIntervalTick(30) && GameComponent_MagazineManager.IsHostileThreatNear(pawn, 30f))
+            {
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -414,6 +531,10 @@ namespace CE_MagazineFed
         {
             this.FailOnDespawnedOrNull(TargetIndex.A);
             this.FailOnMentalState(TargetIndex.A);
+            if (pawn?.RaceProps != null && pawn.RaceProps.IsMechanoid)
+            {
+                this.FailOn(ShouldAbortMechPacking);
+            }
 
             // Ensure weapons always have a magazine seated back even if the job is interrupted!
             AddFinishAction(cond =>
@@ -428,7 +549,10 @@ namespace CE_MagazineFed
                 pickupTripsDone = 0;
                 magPickupTripsDone = 0;
                 roundsPackedCount = 0;
+                roundsPackedThisWave = 0;
+                pendingBatchCount = 1;
                 madeAnyProgress = false;
+                isInPackingPhase = false;
             };
             initCountersToil.defaultCompleteMode = ToilCompleteMode.Instant;
             yield return initCountersToil;
@@ -499,7 +623,7 @@ namespace CE_MagazineFed
             Toil initToil = new Toil();
             initToil.initAction = () =>
             {
-                EnsureEmptyMagazinesProvisioned();
+                EnsureEmptyMagazinesProvisioned(reservePackingHeadroom: true, allowLooseAmmoBulkReclaim: false);
             };
             initToil.defaultCompleteMode = ToilCompleteMode.Instant;
             yield return initToil;
@@ -510,6 +634,7 @@ namespace CE_MagazineFed
 
             findPickupToil.initAction = () =>
             {
+                isInPackingPhase = false;
                 currentPickupThing = null;
                 currentPickupCount = 0;
                 if (FindNextStockpilePickup(out var stack, out int count))
@@ -581,7 +706,10 @@ namespace CE_MagazineFed
             Toil packMoteToil = new Toil();
             packMoteToil.initAction = () =>
             {
+                roundsPackedThisWave = 0;
+                EnsureEmptyMagazinesProvisioned(reservePackingHeadroom: false, allowLooseAmmoBulkReclaim: true);
                 PrepareInsertedMagazinesForPacking(allowCreateNewMags: false);
+                isInPackingPhase = true;
 
                 // Estimate total rounds to pack for progress bar
                 var mgr = GameComponent_MagazineManager.Instance;
@@ -607,7 +735,7 @@ namespace CE_MagazineFed
                         }
                     }
                 }
-                totalRoundsToPackEstimate = Math.Max(1, est);
+                totalRoundsToPackEstimate = Math.Max(1, roundsPackedCount + est);
 
                 if (TrySelectNextMagAndRound(out _, out _, out _, out _) && pawn.Map != null)
                 {
@@ -618,41 +746,67 @@ namespace CE_MagazineFed
             yield return packMoteToil;
 
             Toil packOneRoundToil = new Toil { actor = pawn };
-            AmmoDef pendingAmmo = null;
-            bool pendingInsertFront = false;
 
             packOneRoundToil.initAction = () =>
             {
-                packOneRoundToil.actor.pather?.StopDead();
-                if (!TrySelectNextMagAndRound(out currentPackingMag, out currentPackingPlan, out pendingAmmo, out pendingInsertFront))
+                if (!MoveWhileReloadUtility.CanMoveWhileReloading(packOneRoundToil.actor))
+                {
+                    packOneRoundToil.actor.pather?.StopDead();
+                }
+                if (!TrySelectNextMagAndRound(out currentPackingMag, out currentPackingPlan, out _, out _))
                 {
                     currentPackingMag = null;
-                    pendingAmmo = null;
+                    pendingBatchCount = 1;
                     ReadyForNextToil();
                     return;
                 }
-                float speed = Mathf.Max(0.25f, pawn.GetStatValue(CE_StatDefOf.ReloadSpeed));
-                int baseTicks = CE_MagazineFedMod.Settings?.TicksPerRoundIdle ?? 9;
-                packOneRoundToil.defaultDuration = Mathf.Max(2, Mathf.CeilToInt(baseTicks / speed));
+                int maxPackable = Math.Max(1, CountConsecutivePackableRounds(currentPackingMag, currentPackingPlan, 25));
+                packOneRoundToil.defaultDuration = MagazineUtility.GetPackingTicksAndBatch(pawn, isFieldPacking: false, maxBatchRounds: maxPackable, out pendingBatchCount);
                 ticksLeftThisToil = packOneRoundToil.defaultDuration;
             };
             packOneRoundToil.defaultCompleteMode = ToilCompleteMode.Delay;
             packOneRoundToil.AddFinishAction(() =>
             {
-                if (currentPackingMag == null || currentPackingMag.Destroyed || pendingAmmo == null) return;
-                if (currentPackingMag.LoadedCount >= currentPackingMag.capacity) return;
+                if (currentPackingMag == null || currentPackingMag.Destroyed) return;
+                AmmoPlan plan = currentPackingPlan ?? ResolvePlanForMag(currentPackingMag);
+                if (plan == null) return;
+                plan.Normalize();
 
-                if (MagazineUtility.ConsumeLooseAmmoFromInventory(pawn, pendingAmmo, 1) == 1)
+                int batch = Math.Max(1, pendingBatchCount);
+                for (int b = 0; b < batch; b++)
                 {
-                    if (pendingInsertFront)
+                    if (currentPackingMag.Destroyed || currentPackingMag.LoadedCount >= currentPackingMag.capacity) break;
+
+                    AmmoDef nextAmmo;
+                    bool atFront;
+                    if (currentPackingMag.rounds.Count == 0 || plan.IsPrefixMatch(currentPackingMag.rounds))
                     {
-                        currentPackingMag.rounds.Insert(0, pendingAmmo);
+                        nextAmmo = plan.slots[currentPackingMag.rounds.Count];
+                        atFront = false;
+                    }
+                    else if (plan.IsSuffixMatch(currentPackingMag.rounds))
+                    {
+                        int missing = plan.capacity - currentPackingMag.rounds.Count;
+                        nextAmmo = plan.slots[missing - 1];
+                        atFront = true;
                     }
                     else
                     {
-                        currentPackingMag.rounds.Add(pendingAmmo);
+                        break;
+                    }
+
+                    if (nextAmmo == null || MagazineUtility.ConsumeLooseAmmoFromInventory(pawn, nextAmmo, 1) != 1) break;
+
+                    if (atFront)
+                    {
+                        currentPackingMag.rounds.Insert(0, nextAmmo);
+                    }
+                    else
+                    {
+                        currentPackingMag.rounds.Add(nextAmmo);
                     }
                     roundsPackedCount++;
+                    roundsPackedThisWave++;
                     madeAnyProgress = true;
                     MagazineUtility.TryApplyPackingThumbInjury(pawn, isFieldPacking: false);
                 }
@@ -662,6 +816,22 @@ namespace CE_MagazineFed
 
             // Continue packing until all magazines match their plans or no more planned rounds are in inventory
             yield return Toils_Jump.JumpIf(packOneRoundToil, () => TrySelectNextMagAndRound(out _, out _, out _, out _));
+
+            // Re-seat best magazines and refresh bulk BEFORE checking for another pickup wave
+            Toil waveSeatToil = new Toil();
+            waveSeatToil.initAction = () =>
+            {
+                ReinsertBestMagazinesIntoWeapons();
+                pawn.TryGetComp<CompInventory>()?.UpdateInventory();
+            };
+            waveSeatToil.defaultCompleteMode = ToilCompleteMode.Instant;
+            yield return waveSeatToil;
+
+            // If packing rounds freed carry bulk for tight inventories, loop back for another pickup wave
+            yield return Toils_Jump.JumpIf(findPickupToil, () =>
+                roundsPackedThisWave > 0
+                && pickupTripsDone < MaxPickupTrips
+                && FindNextStockpilePickup(out _, out _));
 
             // Phase 4: Re-insert best magazine into weapon & refresh inventory
             Toil finishToil = new Toil();

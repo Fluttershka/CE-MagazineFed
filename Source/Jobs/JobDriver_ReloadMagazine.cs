@@ -95,7 +95,13 @@ namespace CE_MagazineFed
 
             // Wait toil matching CE weapon reload time (or 0.35x for magazine ejection)
             Toil waitToil = new Toil { actor = pawn };
-            waitToil.initAction = () => waitToil.actor.pather?.StopDead();
+            waitToil.initAction = () =>
+            {
+                if (!MoveWhileReloadUtility.CanMoveWhileReloading(waitToil.actor))
+                {
+                    waitToil.actor.pather?.StopDead();
+                }
+            };
             waitToil.defaultCompleteMode = ToilCompleteMode.Delay;
 
             float reloadTime = CompAmmo?.Props?.reloadTime ?? 1.5f;

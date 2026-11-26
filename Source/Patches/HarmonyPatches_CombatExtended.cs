@@ -359,7 +359,7 @@ namespace CE_MagazineFed
                 ejectJob.count = 1;
                 CE_Reflection.LastReloadJobTick(__instance) = GenTicks.TicksGame;
                 ejectJob.playerForced = true;
-                wielder.jobs.StartJob(ejectJob, JobCondition.InterruptForced, null, wielder.CurJob?.def != ejectJob.def, true);
+                MoveWhileReloadUtility.StartJobPreservingMove(wielder, ejectJob, useOrderedJob: false);
                 return false;
             }
 
@@ -375,7 +375,7 @@ namespace CE_MagazineFed
             {
                 CE_Reflection.LastReloadJobTick(__instance) = GenTicks.TicksGame;
                 job.playerForced = true;
-                wielder.jobs.StartJob(job, JobCondition.InterruptForced, null, wielder.CurJob?.def != job.def, true);
+                MoveWhileReloadUtility.StartJobPreservingMove(wielder, job, useOrderedJob: false);
             }
             return false;
         }
@@ -955,7 +955,7 @@ namespace CE_MagazineFed
                         if (cm != null) cm.pendingPortLoadAmmo = capturedAmmo;
                         Job job = JobMaker.MakeJob(CEMF_DefOf.CEMF_PortLoad, wielder, ca.parent, sample);
                         job.playerForced = true;
-                        wielder.jobs.StartJob(job, JobCondition.InterruptForced, null, wielder.CurJob?.def != job.def, true);
+                        MoveWhileReloadUtility.StartJobPreservingMove(wielder, job, useOrderedJob: false);
                     }
                 }, capturedAmmo));
             }
@@ -965,6 +965,77 @@ namespace CE_MagazineFed
                 opts.Add(new FloatMenuOption("CEMF_PortLoad_NoAmmo".Translate(), null));
             }
             Find.WindowStack.Add(new FloatMenu(opts));
+        }
+    }
+
+    /// <summary>
+    /// Grouped "Pack Now" gizmo shown on undrafted colonists and player-controlled mechanoids
+    /// (also replaces CE's vanilla TakeAmmoNow button on mechanoids). Supports multi-select batch ordering.
+    /// </summary>
+    internal class Command_PackNow : Command_Action
+    {
+        public Pawn pawn;
+        private List<Pawn> groupedPawns;
+
+        public override bool GroupsWith(Gizmo other)
+        {
+            return other is Command_PackNow;
+        }
+
+        public override bool InheritInteractionsFrom(Gizmo other) => false;
+
+        public override void MergeWith(Gizmo other)
+        {
+            if (other is Command_PackNow otherCmd && otherCmd.pawn != null)
+            {
+                if (groupedPawns == null)
+                {
+                    groupedPawns = new List<Pawn>();
+                    if (pawn != null) groupedPawns.Add(pawn);
+                }
+                if (!groupedPawns.Contains(otherCmd.pawn))
+                {
+                    groupedPawns.Add(otherCmd.pawn);
+                }
+            }
+        }
+
+        public override void ProcessInput(Event ev)
+        {
+            base.ProcessInput(ev);
+            var pawns = groupedPawns ?? (pawn != null ? new List<Pawn> { pawn } : new List<Pawn>());
+            pawns.RemoveAll(p => p == null || p.Dead);
+            if (pawns.Count == 0) return;
+
+            if (pawns.Count == 1)
+            {
+                MagazineUtility.TryOrderPackNow(pawns[0], showMessages: true);
+                return;
+            }
+
+            int ordered = 0;
+            bool allDrafted = true;
+            for (int i = 0; i < pawns.Count; i++)
+            {
+                if (!pawns[i].Drafted) allDrafted = false;
+                if (MagazineUtility.TryOrderPackNow(pawns[i], showMessages: false))
+                {
+                    ordered++;
+                }
+            }
+
+            if (ordered > 0)
+            {
+                Messages.Message("CEMF_UI_PackNowBatchOrdered".Translate(ordered), MessageTypeDefOf.PositiveEvent, false);
+            }
+            else if (allDrafted)
+            {
+                Messages.Message("CEMF_UI_PackNowDrafted".Translate(pawns[0].LabelShortCap), pawns[0], MessageTypeDefOf.RejectInput, false);
+            }
+            else
+            {
+                Messages.Message("CEMF_UI_PackNowNotNeeded".Translate(pawns[0].LabelShortCap), MessageTypeDefOf.NeutralEvent, false);
+            }
         }
     }
 
@@ -978,9 +1049,10 @@ namespace CE_MagazineFed
                 yield return g;
             }
 
-            if (__instance.Wielder != null
-                && (__instance.Wielder.IsColonistPlayerControlled || __instance.Wielder.IsColonyMech)
-                && MagazineUtility.ShouldUseMagazineSystem(__instance.Wielder)
+            Pawn wielder = __instance.Wielder;
+            if (wielder != null
+                && (wielder.IsColonistPlayerControlled || MagazineUtility.IsPlayerControlledMechanoid(wielder))
+                && MagazineUtility.ShouldUseMagazineSystem(wielder)
                 && MagazineUtility.IsManagedWeapon(__instance))
             {
                 yield return new Command_SingleWindowAction
@@ -990,14 +1062,25 @@ namespace CE_MagazineFed
                     icon = CEMF_Textures.ManageMags,
                     action = () =>
                     {
-                        Find.WindowStack.Add(new Window_MagazineManager(__instance.Wielder, __instance.parent));
+                        Find.WindowStack.Add(new Window_MagazineManager(wielder, __instance.parent));
                     }
                 };
 
-                // Port Load gizmo for SingleLoad multi-capacity weapons (only shown when Drafted)
-                if (__instance.Wielder.Drafted && MagazineUtility.IsSingleLoadMultiCapacityWeapon(__instance))
+                if (!wielder.Drafted || (MoveWhileReloadUtility.CanMoveWhileReloading(wielder) && JobGiver_PackMagazines.HasInventoryOnlyPackingWork(wielder)))
                 {
-                    Pawn wielder = __instance.Wielder;
+                    yield return new Command_PackNow
+                    {
+                        pawn = wielder,
+                        defaultLabel = "CEMF_Gizmo_PackNowLabel".Translate(),
+                        defaultDesc = "CEMF_Gizmo_PackNowDesc".Translate(),
+                        icon = CEMF_Textures.PackNow,
+                        action = () => { }
+                    };
+                }
+
+                // Port Load gizmo for SingleLoad multi-capacity weapons (only shown when Drafted)
+                if (wielder.Drafted && MagazineUtility.IsSingleLoadMultiCapacityWeapon(__instance))
+                {
                     var portCmd = new Command_PortLoad
                     {
                         compAmmo = __instance,
@@ -1028,7 +1111,8 @@ namespace CE_MagazineFed
                 yield return g;
             }
 
-            if (__instance == null || (!__instance.IsColonistPlayerControlled && !__instance.IsColonyMech)) yield break;
+            bool isMech = MagazineUtility.IsPlayerControlledMechanoid(__instance);
+            if (__instance == null || (!__instance.IsColonistPlayerControlled && !isMech)) yield break;
             if (!MagazineUtility.ShouldUseMagazineSystem(__instance)) yield break;
 
             // If primary weapon is already a managed weapon, CompAmmoUser already yielded the gizmo
@@ -1049,6 +1133,18 @@ namespace CE_MagazineFed
                         Find.WindowStack.Add(new Window_MagazineManager(__instance, managed[0]));
                     }
                 };
+
+                if (!__instance.Drafted || (MoveWhileReloadUtility.CanMoveWhileReloading(__instance) && JobGiver_PackMagazines.HasInventoryOnlyPackingWork(__instance)))
+                {
+                    yield return new Command_PackNow
+                    {
+                        pawn = __instance,
+                        defaultLabel = "CEMF_Gizmo_PackNowLabel".Translate(),
+                        defaultDesc = "CEMF_Gizmo_PackNowDesc".Translate(),
+                        icon = CEMF_Textures.PackNow,
+                        action = () => { }
+                    };
+                }
             }
         }
     }
@@ -1242,19 +1338,38 @@ namespace CE_MagazineFed
         }
     }
 
+    [HarmonyPatch(typeof(CompMechAmmo), nameof(CompMechAmmo.CompGetGizmosExtra))]
+    public static class Patch_CompMechAmmo_CompGetGizmosExtra
+    {
+        public static IEnumerable<Gizmo> Postfix(IEnumerable<Gizmo> gizmos, CompMechAmmo __instance)
+        {
+            if (__instance?.ParentPawn != null
+                && MagazineUtility.ShouldUseMagazineSystem(__instance.ParentPawn)
+                && MagazineUtility.IsManagedWeapon(__instance.AmmoUser))
+            {
+                yield break;
+            }
+            foreach (var g in gizmos)
+            {
+                yield return g;
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(CompMechAmmo), nameof(CompMechAmmo.TryMakeAmmoJob))]
     public static class Patch_CompMechAmmo_TryMakeAmmoJob
     {
         public static bool Prefix(CompMechAmmo __instance, bool forced)
         {
-            if (forced) return true;
-            if (!(CE_MagazineFedMod.Settings?.preventAutoPickupLooseAmmo ?? true)) return true;
-            if (__instance?.ParentPawn == null || !MagazineUtility.ShouldUseMagazineSystem(__instance.ParentPawn)) return true;
-            if (MagazineUtility.IsMagazineFedWeapon(__instance.AmmoUser))
+            if (__instance?.ParentPawn == null) return true;
+            if (!MagazineUtility.ShouldUseMagazineSystem(__instance.ParentPawn)) return true;
+            if (!MagazineUtility.IsManagedWeapon(__instance.AmmoUser)) return true;
+
+            if (forced)
             {
-                return false;
+                MagazineUtility.TryOrderPackNow(__instance.ParentPawn, showMessages: true);
             }
-            return true;
+            return false;
         }
     }
 

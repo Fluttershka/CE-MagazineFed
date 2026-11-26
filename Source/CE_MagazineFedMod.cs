@@ -31,10 +31,25 @@ namespace CE_MagazineFed
         VanillaCE = 3
     }
 
+    public enum MoveWhileReloadingMode
+    {
+        AutoWithMod = 0,
+        AlwaysEnabled = 1,
+        Disabled = 2
+    }
+
+    public enum MoveSpeedPenaltyMode
+    {
+        WeaponMassFormula = 0,
+        FixedMultiplier = 1
+    }
+
     public class CEMFSettings : ModSettings
     {
         public FactionScope factionScope = FactionScope.PlayerOnly;
         public bool enableForMechanoids = false;
+        public bool allowEscortMechPacking = true;
+        public float mechPackingSpeedMultiplier = 3.0f;
         public PackingPriorityMode packingPriority = PackingPriorityMode.IdleOnly;
         public int defaultMagCount = 4;
         public float secondsPerRoundIdle = 0.15f;
@@ -48,6 +63,9 @@ namespace CE_MagazineFed
         public bool destroyShellOnUnload = true;
         public bool showMultiColorGizmoBar = true;
         public bool enablePackingThumbInjury = false;
+        public MoveWhileReloadingMode moveWhileReloadingMode = MoveWhileReloadingMode.AutoWithMod;
+        public MoveSpeedPenaltyMode moveSpeedPenaltyMode = MoveSpeedPenaltyMode.WeaponMassFormula;
+        public float fixedMoveWhileReloadSpeed = 0.70f;
 
         /// <summary>
         /// Per-weapon feeding mode override keyed by weapon ThingDef.defName. Only non-Auto entries are stored.
@@ -59,6 +77,8 @@ namespace CE_MagazineFed
         public int TicksPerRoundIdle => Mathf.Max(2, Mathf.RoundToInt(secondsPerRoundIdle * 60f));
         public int TicksPerRoundField => Mathf.Max(4, Mathf.RoundToInt(secondsPerRoundIdle * fieldPackTimeMultiplier * 60f));
         public int EmptyMagCleanupTicks => Mathf.Max(60, Mathf.RoundToInt(emptyMagCleanupSeconds * 60f));
+        public float EffectiveMechPackingSpeedMult => Mathf.Clamp(Mathf.Round(mechPackingSpeedMultiplier * 2f) / 2f, 1f, 10f);
+        public float EffectiveFixedMoveSpeed => Mathf.Clamp(Mathf.Round(fixedMoveWhileReloadSpeed * 20f) / 20f, 0.20f, 1.00f);
 
         public WeaponFeedModeOverride GetWeaponOverride(ThingDef def)
         {
@@ -86,6 +106,8 @@ namespace CE_MagazineFed
             base.ExposeData();
             Scribe_Values.Look(ref factionScope, "factionScope", FactionScope.PlayerOnly);
             Scribe_Values.Look(ref enableForMechanoids, "enableForMechanoids", false);
+            Scribe_Values.Look(ref allowEscortMechPacking, "allowEscortMechPacking", true);
+            Scribe_Values.Look(ref mechPackingSpeedMultiplier, "mechPackingSpeedMultiplier", 3.0f);
             Scribe_Values.Look(ref packingPriority, "packingPriority", PackingPriorityMode.IdleOnly);
             Scribe_Values.Look(ref defaultMagCount, "defaultMagCount", 4);
             Scribe_Values.Look(ref secondsPerRoundIdle, "secondsPerRoundIdle", 0.15f);
@@ -99,11 +121,19 @@ namespace CE_MagazineFed
             Scribe_Values.Look(ref destroyShellOnUnload, "destroyShellOnUnload", true);
             Scribe_Values.Look(ref showMultiColorGizmoBar, "showMultiColorGizmoBar", true);
             Scribe_Values.Look(ref enablePackingThumbInjury, "enablePackingThumbInjury", false);
+            Scribe_Values.Look(ref moveWhileReloadingMode, "moveWhileReloadingMode", MoveWhileReloadingMode.AutoWithMod);
+            Scribe_Values.Look(ref moveSpeedPenaltyMode, "moveSpeedPenaltyMode", MoveSpeedPenaltyMode.WeaponMassFormula);
+            Scribe_Values.Look(ref fixedMoveWhileReloadSpeed, "fixedMoveWhileReloadSpeed", 0.70f);
             Scribe_Collections.Look(ref weaponFeedOverrides, "weaponFeedOverrides", LookMode.Value, LookMode.Value, ref scribeOverrideKeys, ref scribeOverrideValues);
 
-            if (Scribe.mode == LoadSaveMode.PostLoadInit && weaponFeedOverrides == null)
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
-                weaponFeedOverrides = new Dictionary<string, WeaponFeedModeOverride>();
+                if (weaponFeedOverrides == null)
+                {
+                    weaponFeedOverrides = new Dictionary<string, WeaponFeedModeOverride>();
+                }
+                mechPackingSpeedMultiplier = Mathf.Clamp(Mathf.Round(mechPackingSpeedMultiplier * 2f) / 2f, 1f, 10f);
+                fixedMoveWhileReloadSpeed = Mathf.Clamp(Mathf.Round(fixedMoveWhileReloadSpeed * 20f) / 20f, 0.20f, 1.00f);
             }
         }
     }
@@ -240,7 +270,7 @@ namespace CE_MagazineFed
 
         private void DrawGeneralSettings(Rect inRect)
         {
-            Rect viewRect = new Rect(0f, 0f, inRect.width - 20f, 680f);
+            Rect viewRect = new Rect(0f, 0f, inRect.width - 20f, 1020f);
             Widgets.BeginScrollView(inRect, ref generalScroll, viewRect);
 
             Listing_Standard listing = new Listing_Standard();
@@ -256,6 +286,13 @@ namespace CE_MagazineFed
                 Settings.factionScope = FactionScope.AllFactions;
             }
             listing.CheckboxLabeled("CEMF_Settings_EnableForMechanoids".Translate(), ref Settings.enableForMechanoids);
+            if (Settings.enableForMechanoids)
+            {
+                listing.CheckboxLabeled("CEMF_Settings_AllowEscortMechPacking".Translate(), ref Settings.allowEscortMechPacking);
+                listing.Label("CEMF_Settings_MechPackingSpeedMult".Translate(Settings.EffectiveMechPackingSpeedMult.ToString("0.0")));
+                float rawMechMult = listing.Slider(Settings.EffectiveMechPackingSpeedMult, 1f, 10f);
+                Settings.mechPackingSpeedMultiplier = Mathf.Clamp(Mathf.Round(rawMechMult * 2f) / 2f, 1f, 10f);
+            }
 
             listing.Gap(10f);
             listing.Label("CEMF_Settings_PackingPriority".Translate());
@@ -296,6 +333,45 @@ namespace CE_MagazineFed
             listing.CheckboxLabeled("CEMF_Settings_DestroyShellOnUnload".Translate(), ref Settings.destroyShellOnUnload);
             listing.CheckboxLabeled("CEMF_Settings_ShowMultiColorBar".Translate(), ref Settings.showMultiColorGizmoBar);
             listing.CheckboxLabeled("CEMF_Settings_EnableThumbInjury".Translate(), ref Settings.enablePackingThumbInjury);
+
+            listing.Gap(12f);
+            listing.Label("CEMF_Settings_MoveWhileReloading".Translate());
+            string detectedTag = MoveWhileReloadUtility.IsCEMoveReloadModActive
+                ? "CEMF_Settings_MoveWhileReloading_Detected".Translate().RawText
+                : "CEMF_Settings_MoveWhileReloading_NotDetected".Translate().RawText;
+            if (listing.RadioButton("CEMF_Settings_MoveWhileReloading_Auto".Translate(detectedTag), Settings.moveWhileReloadingMode == MoveWhileReloadingMode.AutoWithMod))
+            {
+                Settings.moveWhileReloadingMode = MoveWhileReloadingMode.AutoWithMod;
+            }
+            if (listing.RadioButton("CEMF_Settings_MoveWhileReloading_Always".Translate(), Settings.moveWhileReloadingMode == MoveWhileReloadingMode.AlwaysEnabled))
+            {
+                Settings.moveWhileReloadingMode = MoveWhileReloadingMode.AlwaysEnabled;
+            }
+            if (listing.RadioButton("CEMF_Settings_MoveWhileReloading_Disabled".Translate(), Settings.moveWhileReloadingMode == MoveWhileReloadingMode.Disabled))
+            {
+                Settings.moveWhileReloadingMode = MoveWhileReloadingMode.Disabled;
+            }
+
+            if (MoveWhileReloadUtility.IsFeatureGloballyActive())
+            {
+                listing.Gap(6f);
+                listing.Label("CEMF_Settings_MoveSpeedMode".Translate());
+                if (listing.RadioButton("CEMF_Settings_MoveSpeedMode_WeaponMass".Translate(), Settings.moveSpeedPenaltyMode == MoveSpeedPenaltyMode.WeaponMassFormula))
+                {
+                    Settings.moveSpeedPenaltyMode = MoveSpeedPenaltyMode.WeaponMassFormula;
+                }
+                if (listing.RadioButton("CEMF_Settings_MoveSpeedMode_Fixed".Translate(), Settings.moveSpeedPenaltyMode == MoveSpeedPenaltyMode.FixedMultiplier))
+                {
+                    Settings.moveSpeedPenaltyMode = MoveSpeedPenaltyMode.FixedMultiplier;
+                }
+                if (Settings.moveSpeedPenaltyMode == MoveSpeedPenaltyMode.FixedMultiplier)
+                {
+                    int pct = Mathf.RoundToInt(Settings.EffectiveFixedMoveSpeed * 100f);
+                    listing.Label("CEMF_Settings_FixedMoveSpeed".Translate(pct));
+                    float rawSpeed = listing.Slider(Settings.EffectiveFixedMoveSpeed, 0.20f, 1.00f);
+                    Settings.fixedMoveWhileReloadSpeed = Mathf.Clamp(Mathf.Round(rawSpeed * 20f) / 20f, 0.20f, 1.00f);
+                }
+            }
 
             listing.End();
             Widgets.EndScrollView();

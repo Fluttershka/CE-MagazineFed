@@ -53,27 +53,4 @@
       <li Class="CE_MagazineFed.JobGiver_PackMagazines" />
     </value>
   </Operation>
-
-  <!-- 4. Add idle magazine packing JobGiver to player Mechanoid ThinkTree (active only when EnableForMechanoids setting is ON) -->
-  <Operation Class="PatchOperationConditional">
-    <xpath>Defs/ThinkTreeDef[defName="Mechanoid"]/thinkRoot/subNodes/li[@Class="ThinkNode_ConditionalPlayerControlledMech"]/subNodes/li[@Class="ThinkNode_Tagger" and tagToGive="Idle"]/subNodes</xpath>
-    <match Class="PatchOperationAdd">
-      <xpath>Defs/ThinkTreeDef[defName="Mechanoid"]/thinkRoot/subNodes/li[@Class="ThinkNode_ConditionalPlayerControlledMech"]/subNodes/li[@Class="ThinkNode_Tagger" and tagToGive="Idle"]/subNodes</xpath>
-      <order>Prepend</order>
-      <value>
-        <li Class="CE_MagazineFed.JobGiver_PackMagazines" />
-      </value>
-    </match>
-  </Operation>
-
-  <Operation Class="PatchOperationConditional">
-    <xpath>Defs/ThinkTreeDef[defName="Mechanoid"]/thinkRoot/subNodes/li[@Class="ThinkNode_ConditionalPlayerControlledMech"]//li[@Class="ThinkNode_ConditionalWorkMech"]/subNodes/li[@Class="ThinkNode_Tagger" and tagToGive="MiscWork"]/subNodes</xpath>
-    <match Class="PatchOperationAdd">
-      <xpath>Defs/ThinkTreeDef[defName="Mechanoid"]/thinkRoot/subNodes/li[@Class="ThinkNode_ConditionalPlayerControlledMech"]//li[@Class="ThinkNode_ConditionalWorkMech"]/subNodes/li[@Class="ThinkNode_Tagger" and tagToGive="MiscWork"]/subNodes</xpath>
-      <order>Prepend</order>
-      <value>
-        <li Class="CE_MagazineFed.JobGiver_PackMagazines" />
-      </value>
-    </match>
-  </Operation>
 </Patch>

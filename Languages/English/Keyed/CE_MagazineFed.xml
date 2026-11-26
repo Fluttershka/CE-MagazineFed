@@ -6,6 +6,8 @@
   <CEMF_Settings_FactionScope_PlayerOnly>Player Colony Pawns Only (Default, Best Compatibility)</CEMF_Settings_FactionScope_PlayerOnly>
   <CEMF_Settings_FactionScope_AllFactions>All Factions (Including Hostile &amp; Neutral NPCs)</CEMF_Settings_FactionScope_AllFactions>
   <CEMF_Settings_EnableForMechanoids>Enable magazine system for mechanoids (Off by default; keeps vanilla CE mech ammo system)</CEMF_Settings_EnableForMechanoids>
+  <CEMF_Settings_AllowEscortMechPacking>Allow mechanoids in Escort mode to auto-pack magazines when safe &amp; idle (cancels immediately if overseer drafts or enters combat)</CEMF_Settings_AllowEscortMechPacking>
+  <CEMF_Settings_MechPackingSpeedMult>Mechanoid Magazine Packing Speed Multiplier: {0}x</CEMF_Settings_MechPackingSpeedMult>
   <CEMF_Settings_PackingPriority>Auto-Packing Priority</CEMF_Settings_PackingPriority>
   <CEMF_Settings_PackingPriority_IdleOnly>Idle Only (Lower than normal work, Default)</CEMF_Settings_PackingPriority_IdleOnly>
   <CEMF_Settings_PackingPriority_BeforeWork>Before Normal Work (Combat Readiness)</CEMF_Settings_PackingPriority_BeforeWork>
@@ -22,6 +24,16 @@
   <CEMF_Settings_DestroyShellOnUnload>Automatically recycle/remove empty magazine shell after unloading</CEMF_Settings_DestroyShellOnUnload>
   <CEMF_Settings_ShowMultiColorBar>Show mixed-ammo color strip on weapon ammo gizmo</CEMF_Settings_ShowMultiColorBar>
   <CEMF_Settings_EnableThumbInjury>Chance to injure right thumb while packing magazines (Easter egg, Off by default)</CEMF_Settings_EnableThumbInjury>
+  <CEMF_Settings_MoveWhileReloading>Move While Reloading &amp; Packing</CEMF_Settings_MoveWhileReloading>
+  <CEMF_Settings_MoveWhileReloading_Auto>Auto-link with CE - Move while reloading ({0})</CEMF_Settings_MoveWhileReloading_Auto>
+  <CEMF_Settings_MoveWhileReloading_Detected>Detected</CEMF_Settings_MoveWhileReloading_Detected>
+  <CEMF_Settings_MoveWhileReloading_NotDetected>Not detected</CEMF_Settings_MoveWhileReloading_NotDetected>
+  <CEMF_Settings_MoveWhileReloading_Always>Always Enabled (Standalone, works without CE - Move while reloading)</CEMF_Settings_MoveWhileReloading_Always>
+  <CEMF_Settings_MoveWhileReloading_Disabled>Disabled (Always stand still)</CEMF_Settings_MoveWhileReloading_Disabled>
+  <CEMF_Settings_MoveSpeedMode>Move Speed While Reloading / Packing</CEMF_Settings_MoveSpeedMode>
+  <CEMF_Settings_MoveSpeedMode_WeaponMass>Weapon Weight Formula (Same as CE - Move while reloading)</CEMF_Settings_MoveSpeedMode_WeaponMass>
+  <CEMF_Settings_MoveSpeedMode_Fixed>Custom Fixed Move Speed Multiplier</CEMF_Settings_MoveSpeedMode_Fixed>
+  <CEMF_Settings_FixedMoveSpeed>Move Speed Multiplier While Reloading / Packing: {0}%</CEMF_Settings_FixedMoveSpeed>
   <CEMF_Settings_TabGeneral>General Settings</CEMF_Settings_TabGeneral>
   <CEMF_Settings_TabWeapons>Weapon Feed Modes</CEMF_Settings_TabWeapons>
   <CEMF_Settings_FilterModAll>Mod Source: All ({0})</CEMF_Settings_FilterModAll>
@@ -61,6 +73,8 @@
   <!-- Gizmos & Reload Menu -->
   <CEMF_Gizmo_ManageLabel>Magazines</CEMF_Gizmo_ManageLabel>
   <CEMF_Gizmo_ManageDesc>Open the Magazine &amp; Ammo Loadout Manager to configure magazine counts and mixed-ammo round order for this colonist.</CEMF_Gizmo_ManageDesc>
+  <CEMF_Gizmo_PackNowLabel>Pack Now</CEMF_Gizmo_PackNowLabel>
+  <CEMF_Gizmo_PackNowDesc>Immediately order selected colonists or mechanoids to pack and organize magazines according to their configured ammo plans (supports multi-select).</CEMF_Gizmo_PackNowDesc>
   <CEMF_Gizmo_PortLoadLabel>Port Load</CEMF_Gizmo_PortLoadLabel>
   <CEMF_Gizmo_PortLoadDesc>Temporarily load one chosen compatible round from inventory directly into slot #1 (fired next). When full, ejects the currently chambered round back into inventory first.</CEMF_Gizmo_PortLoadDesc>
   <CEMF_PortLoad_NoAmmo>No compatible loose ammo in inventory</CEMF_PortLoad_NoAmmo>
@@ -94,8 +108,10 @@
   <CEMF_UI_PackNow>Pack Now</CEMF_UI_PackNow>
   <CEMF_UI_PackNowTip>Immediately order this colonist to pack and organize magazines according to their plan.</CEMF_UI_PackNowTip>
   <CEMF_UI_PackNowOrdered>Ordered {0} to pack magazines now.</CEMF_UI_PackNowOrdered>
+  <CEMF_UI_PackNowBatchOrdered>Ordered {0} pawns to pack magazines now.</CEMF_UI_PackNowBatchOrdered>
   <CEMF_UI_PackNowNotNeeded>{0}'s magazines already match the plan or no loose ammo is available.</CEMF_UI_PackNowNotNeeded>
   <CEMF_UI_PackNowDrafted>{0} is currently drafted; undraft first to pack magazines.</CEMF_UI_PackNowDrafted>
+  <CEMF_UI_PackNowDraftedNoAmmo>{0} is drafted and has no compatible loose ammo or reorderable magazines in inventory.</CEMF_UI_PackNowDraftedNoAmmo>
   <CEMF_UI_PackNowAlready>{0} is already packing magazines.</CEMF_UI_PackNowAlready>
   <CEMF_UI_PackNowIncapable>{0} is currently incapable of packing magazines.</CEMF_UI_PackNowIncapable>
   <CEMF_UI_PackNowInventoryFull>{0} does not have enough free carry mass or bulk to pick up more ammo.</CEMF_UI_PackNowInventoryFull>

@@ -6,6 +6,8 @@
   <CEMF_Settings_FactionScope_PlayerOnly>仅玩家殖民地小人（默认，兼容性最佳）</CEMF_Settings_FactionScope_PlayerOnly>
   <CEMF_Settings_FactionScope_AllFactions>全阵营（玩家与敌方/中立 NPC 均使用弹匣）</CEMF_Settings_FactionScope_AllFactions>
   <CEMF_Settings_EnableForMechanoids>机械体启用弹匣系统（默认关闭，保留 CE 原版机械体弹药补给机制）</CEMF_Settings_EnableForMechanoids>
+  <CEMF_Settings_AllowEscortMechPacking>允许护卫模式下的机械体在安全闲置时自动压弹（机械师征召或遇敌时立即中止并插回弹匣归队）</CEMF_Settings_AllowEscortMechPacking>
+  <CEMF_Settings_MechPackingSpeedMult>机械体压装弹匣速度倍率：{0}x</CEMF_Settings_MechPackingSpeedMult>
   <CEMF_Settings_PackingPriority>自动压弹优先级</CEMF_Settings_PackingPriority>
   <CEMF_Settings_PackingPriority_IdleOnly>仅闲时自动压弹（低于常规工作，默认）</CEMF_Settings_PackingPriority_IdleOnly>
   <CEMF_Settings_PackingPriority_BeforeWork>优先于常规工作（战备优先）</CEMF_Settings_PackingPriority_BeforeWork>
@@ -22,6 +24,16 @@
   <CEMF_Settings_DestroyShellOnUnload>清空弹匣为散弹后自动回收销毁空弹匣壳</CEMF_Settings_DestroyShellOnUnload>
   <CEMF_Settings_ShowMultiColorBar>在武器弹药状态栏显示混装弹种色带</CEMF_Settings_ShowMultiColorBar>
   <CEMF_Settings_EnableThumbInjury>压装弹匣时有概率伤到右手大拇指（彩蛋，默认关闭）</CEMF_Settings_EnableThumbInjury>
+  <CEMF_Settings_MoveWhileReloading>换弹与压装弹匣时允许移动</CEMF_Settings_MoveWhileReloading>
+  <CEMF_Settings_MoveWhileReloading_Auto>自动联动 CE - Move while reloading（{0}）</CEMF_Settings_MoveWhileReloading_Auto>
+  <CEMF_Settings_MoveWhileReloading_Detected>已检测到</CEMF_Settings_MoveWhileReloading_Detected>
+  <CEMF_Settings_MoveWhileReloading_NotDetected>未检测到</CEMF_Settings_MoveWhileReloading_NotDetected>
+  <CEMF_Settings_MoveWhileReloading_Always>独立开启（无需安装 CE - Move while reloading，1.6/1.7 通用）</CEMF_Settings_MoveWhileReloading_Always>
+  <CEMF_Settings_MoveWhileReloading_Disabled>关闭（始终原地站立操作）</CEMF_Settings_MoveWhileReloading_Disabled>
+  <CEMF_Settings_MoveSpeedMode>换弹 / 压弹期间移动速度</CEMF_Settings_MoveSpeedMode>
+  <CEMF_Settings_MoveSpeedMode_WeaponMass>武器负重公式（与 CE - Move while reloading 完全一致）</CEMF_Settings_MoveSpeedMode_WeaponMass>
+  <CEMF_Settings_MoveSpeedMode_Fixed>自定义固定移速倍率</CEMF_Settings_MoveSpeedMode_Fixed>
+  <CEMF_Settings_FixedMoveSpeed>换弹 / 压弹时移动速度倍率：{0}%</CEMF_Settings_FixedMoveSpeed>
   <CEMF_Settings_TabGeneral>常规设置</CEMF_Settings_TabGeneral>
   <CEMF_Settings_TabWeapons>武器供弹模式</CEMF_Settings_TabWeapons>
   <CEMF_Settings_FilterModAll>Mod 来源：全部 ({0})</CEMF_Settings_FilterModAll>
@@ -61,6 +73,8 @@
   <!-- Gizmos & Reload Menu -->
   <CEMF_Gizmo_ManageLabel>弹匣方案</CEMF_Gizmo_ManageLabel>
   <CEMF_Gizmo_ManageDesc>打开弹匣与弹仓供弹方案管理界面，为殖民者配置携带弹匣数量及每个弹匣（或单发装填弹仓）内的混装弹种顺序。</CEMF_Gizmo_ManageDesc>
+  <CEMF_Gizmo_PackNowLabel>立即压弹</CEMF_Gizmo_PackNowLabel>
+  <CEMF_Gizmo_PackNowDesc>立即指派选中的殖民者或机械体按当前弹匣方案整理并压装弹匣（支持多选批量下令）。</CEMF_Gizmo_PackNowDesc>
   <CEMF_Gizmo_PortLoadLabel>侧装</CEMF_Gizmo_PortLoadLabel>
   <CEMF_Gizmo_PortLoadDesc>临时将背包中携带的一发指定子弹直接装入第 1 顺位（下一发立即射出）。弹仓已满时会先将当前第 1 发子弹退回背包。</CEMF_Gizmo_PortLoadDesc>
   <CEMF_PortLoad_NoAmmo>背包中没有可用的兼容散装弹药</CEMF_PortLoad_NoAmmo>
@@ -91,11 +105,13 @@
   <CEMF_UI_NoWeapon>未携带需管理弹匣或弹仓的武器</CEMF_UI_NoWeapon>
   <CEMF_UI_Mode_MagFed>弹匣供弹</CEMF_UI_Mode_MagFed>
   <CEMF_UI_Mode_SingleLoad>单发弹仓</CEMF_UI_Mode_SingleLoad>
-  <CEMF_UI_PackNow>立即压弹整理</CEMF_UI_PackNow>
+  <CEMF_UI_PackNow>立即压装弹匣</CEMF_UI_PackNow>
   <CEMF_UI_PackNowTip>立即指派该殖民者按当前方案整理并装填弹匣（或补充单发弹仓弹药）。</CEMF_UI_PackNowTip>
-  <CEMF_UI_PackNowOrdered>已指派 {0} 立即开始压弹整理。</CEMF_UI_PackNowOrdered>
+  <CEMF_UI_PackNowOrdered>已指派 {0} 立即开始压装弹匣。</CEMF_UI_PackNowOrdered>
+  <CEMF_UI_PackNowBatchOrdered>已指派 {0} 名单位立即开始压装弹匣。</CEMF_UI_PackNowBatchOrdered>
   <CEMF_UI_PackNowNotNeeded>{0} 的弹匣已符合方案，或当前无可用散弹。</CEMF_UI_PackNowNotNeeded>
   <CEMF_UI_PackNowDrafted>{0} 当前处于征召状态，请先解除征召再执行压装弹匣。</CEMF_UI_PackNowDrafted>
+  <CEMF_UI_PackNowDraftedNoAmmo>{0} 处于征召状态，背包内没有可用的兼容散弹或可整理的弹匣。</CEMF_UI_PackNowDraftedNoAmmo>
   <CEMF_UI_PackNowAlready>{0} 当前已经在压装弹匣中。</CEMF_UI_PackNowAlready>
   <CEMF_UI_PackNowIncapable>{0} 当前状态无法执行压装弹匣。</CEMF_UI_PackNowIncapable>
   <CEMF_UI_PackNowInventoryFull>{0} 的背包剩余负重或体积不足，无法再去拾取所需弹药。</CEMF_UI_PackNowInventoryFull>

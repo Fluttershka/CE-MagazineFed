@@ -5,6 +5,7 @@ using CombatExtended;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using Verse.AI;
 
 namespace CE_MagazineFed
 {
@@ -254,6 +255,22 @@ namespace CE_MagazineFed
             return modified;
         }
 
+        /// <summary>
+        /// True if the pawn is a player-faction mechanoid that is still under player control
+        /// (excludes hostile/feral/disconnected mechanoids).
+        /// </summary>
+        public static bool IsPlayerControlledMechanoid(Pawn pawn)
+        {
+            if (pawn == null || pawn.RaceProps == null || !pawn.RaceProps.IsMechanoid) return false;
+            if (pawn.Faction != Faction.OfPlayer) return false;
+            if (pawn.HostileTo(Faction.OfPlayer)) return false;
+            if (ModsConfig.BiotechActive && pawn.OverseerSubject != null && pawn.OverseerSubject.State != OverseerSubjectState.Overseen)
+            {
+                return false;
+            }
+            return true;
+        }
+
         public static bool ShouldUseMagazineSystem(Pawn pawn)
         {
             if (pawn == null || pawn.Dead) return false;
@@ -268,7 +285,7 @@ namespace CE_MagazineFed
             {
                 if (!(settings?.enableForMechanoids ?? false)) return false;
                 if (scope == FactionScope.AllFactions) return true;
-                return pawn.IsColonyMech || pawn.Faction == Faction.OfPlayer;
+                return IsPlayerControlledMechanoid(pawn);
             }
 
             if (!pawn.RaceProps.Humanlike) return false;
@@ -278,6 +295,296 @@ namespace CE_MagazineFed
                 return true;
             }
             return pawn.IsColonistPlayerControlled || pawn.Faction == Faction.OfPlayer;
+        }
+
+        public static float GetCaliberReferenceBulk(AmmoSetDef ammoSet)
+        {
+            if (ammoSet?.ammoTypes != null)
+            {
+                for (int i = 0; i < ammoSet.ammoTypes.Count; i++)
+                {
+                    var ad = ammoSet.ammoTypes[i]?.ammo;
+                    if (ad != null)
+                    {
+                        return ad.GetStatValueAbstract(CE_StatDefOf.Bulk);
+                    }
+                }
+            }
+            return 0.02f;
+        }
+
+        public static float GetCaliberReferenceMass(AmmoSetDef ammoSet)
+        {
+            if (ammoSet?.ammoTypes != null)
+            {
+                for (int i = 0; i < ammoSet.ammoTypes.Count; i++)
+                {
+                    var ad = ammoSet.ammoTypes[i]?.ammo;
+                    if (ad != null)
+                    {
+                        return ad.GetStatValueAbstract(StatDefOf.Mass);
+                    }
+                }
+            }
+            return 0.01f;
+        }
+
+        public static float EstimateEmptyMagazineMass(int capacity)
+        {
+            return Mathf.Clamp(0.05f + capacity * 0.004f, 0.06f, 0.65f);
+        }
+
+        public static float EstimateFullMagazineBulk(AmmoSetDef ammoSet, int capacity)
+        {
+            float emptyShellBulk = Mathf.Clamp(0.12f + capacity * 0.009f, 0.15f, 1.8f);
+            float fullRoundsBulk = GetCaliberReferenceBulk(ammoSet) * capacity * 0.85f;
+            return emptyShellBulk + fullRoundsBulk;
+        }
+
+        public static float EstimateFullMagazineMass(AmmoSetDef ammoSet, int capacity)
+        {
+            return EstimateEmptyMagazineMass(capacity) + GetCaliberReferenceMass(ammoSet) * capacity;
+        }
+
+        public static float ComputeCompatibleLooseAmmoBulkInInventory(Pawn pawn, AmmoSetDef ammoSet)
+        {
+            if (pawn?.inventory?.innerContainer == null || ammoSet?.ammoTypes == null) return 0f;
+            float totalBulk = 0f;
+            var container = pawn.inventory.innerContainer;
+            for (int i = 0; i < container.Count; i++)
+            {
+                Thing t = container[i];
+                if (t.def is AmmoDef ad && t.stackCount > 0)
+                {
+                    for (int j = 0; j < ammoSet.ammoTypes.Count; j++)
+                    {
+                        if (ammoSet.ammoTypes[j].ammo == ad)
+                        {
+                            totalBulk += ad.GetStatValueAbstract(CE_StatDefOf.Bulk) * t.stackCount;
+                            break;
+                        }
+                    }
+                }
+            }
+            return totalBulk;
+        }
+
+        /// <summary>
+        /// Estimates how many additional empty magazines of (ammoSet, capacity) can safely fit in `pawn`'s inventory.
+        /// When `includeCompatibleLooseAmmoReclaim` is true, accounts for bulk freed by packing loose ammo already in inventory.
+        /// </summary>
+        public static int CountMaxNewMagazinesFit(Pawn pawn, AmmoSetDef ammoSet, int capacity, bool includeCompatibleLooseAmmoReclaim = false)
+        {
+            if (pawn == null || ammoSet == null || capacity <= 0) return 0;
+            var compInv = pawn.TryGetComp<CompInventory>();
+            if (compInv == null) return 20;
+
+            compInv.UpdateInventory();
+            float availBulk = Mathf.Max(0f, compInv.capacityBulk - compInv.currentBulk);
+            if (includeCompatibleLooseAmmoReclaim)
+            {
+                availBulk += ComputeCompatibleLooseAmmoBulkInInventory(pawn, ammoSet);
+            }
+            float availWeight = Mathf.Max(0f, compInv.capacityWeight - compInv.currentWeight);
+
+            float magBulk = Mathf.Max(0.01f, EstimateFullMagazineBulk(ammoSet, capacity));
+            float emptyMass = Mathf.Max(0.01f, EstimateEmptyMagazineMass(capacity));
+
+            int fitByBulk = Mathf.FloorToInt((availBulk + 0.001f) / magBulk);
+            int fitByWeight = Mathf.FloorToInt((availWeight + 0.001f) / emptyMass);
+            return Mathf.Clamp(Mathf.Min(fitByBulk, fitByWeight), 0, 20);
+        }
+
+        public static bool CanFitNewMagazine(Pawn pawn, AmmoSetDef ammoSet, int capacity, bool includeCompatibleLooseAmmoReclaim = false)
+        {
+            return CountMaxNewMagazinesFit(pawn, ammoSet, capacity, includeCompatibleLooseAmmoReclaim) > 0;
+        }
+
+        /// <summary>
+        /// Computes initial total magazine count for newly configured weapons.
+        /// For mechanoids, caps spare magazines based on remaining CarryBulk and CarryWeight so light/heavy mechs are not overburdened.
+        /// </summary>
+        public static int ComputeInitialMagCountForPawn(Pawn pawn, CompAmmoUser compAmmo)
+        {
+            int desired = Mathf.Clamp(CE_MagazineFedMod.Settings?.defaultMagCount ?? 4, 1, 20);
+            if (pawn == null || compAmmo == null || compAmmo.CurAmmoSet == null) return desired;
+            if (pawn.RaceProps == null || !pawn.RaceProps.IsMechanoid) return desired;
+
+            var compInv = pawn.TryGetComp<CompInventory>();
+            if (compInv == null) return desired;
+
+            compInv.UpdateInventory();
+            float existingAmmoBulk = 0f;
+            float existingAmmoMass = 0f;
+            var container = pawn.inventory?.innerContainer;
+            if (container != null)
+            {
+                for (int i = 0; i < container.Count; i++)
+                {
+                    Thing t = container[i];
+                    if (t is Thing_CEMagazine mag && mag.Matches(compAmmo.CurAmmoSet, compAmmo.MagSize))
+                    {
+                        existingAmmoBulk += mag.GetFullMagazineBulk();
+                        existingAmmoMass += t.GetStatValue(StatDefOf.Mass);
+                    }
+                    else if (t.def is AmmoDef ad && t.stackCount > 0 && compAmmo.CurAmmoSet.ammoTypes != null)
+                    {
+                        for (int j = 0; j < compAmmo.CurAmmoSet.ammoTypes.Count; j++)
+                        {
+                            if (compAmmo.CurAmmoSet.ammoTypes[j].ammo == ad)
+                            {
+                                existingAmmoBulk += ad.GetStatValueAbstract(CE_StatDefOf.Bulk) * t.stackCount;
+                                existingAmmoMass += ad.GetStatValueAbstract(StatDefOf.Mass) * t.stackCount;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            float nonAmmoBulk = Mathf.Max(0f, compInv.currentBulk - existingAmmoBulk);
+            float nonAmmoWeight = Mathf.Max(0f, compInv.currentWeight - existingAmmoMass);
+            float usableBulk = Mathf.Max(0f, compInv.capacityBulk - nonAmmoBulk);
+            float usableWeight = Mathf.Max(0f, compInv.capacityWeight - nonAmmoWeight);
+
+            float magBulk = Mathf.Max(0.01f, EstimateFullMagazineBulk(compAmmo.CurAmmoSet, compAmmo.MagSize));
+            float magMass = Mathf.Max(0.01f, EstimateFullMagazineMass(compAmmo.CurAmmoSet, compAmmo.MagSize));
+
+            int maxSpareByBulk = Mathf.FloorToInt((usableBulk * 0.75f) / magBulk);
+            int maxSpareByWeight = Mathf.FloorToInt((usableWeight * 0.80f) / magMass);
+            int maxTotal = 1 + Mathf.Max(0, Mathf.Min(maxSpareByBulk, maxSpareByWeight));
+
+            return Mathf.Clamp(desired, 1, maxTotal);
+        }
+
+        /// <summary>
+        /// Computes toil duration and rounds-per-toil batch size for packing magazines.
+        /// Uses ReloadSpeed and applies the mechanoid packing speed multiplier (1.0x..10.0x) with sub-tick batching.
+        /// </summary>
+        public static int GetPackingTicksAndBatch(Pawn pawn, bool isFieldPacking, int maxBatchRounds, out int batchRounds)
+        {
+            float minStat = isFieldPacking ? 0.2f : 0.25f;
+            float speed = Mathf.Max(minStat, pawn != null ? pawn.GetStatValue(CE_StatDefOf.ReloadSpeed) : 1f);
+            if (pawn?.RaceProps != null && pawn.RaceProps.IsMechanoid)
+            {
+                speed *= CE_MagazineFedMod.Settings?.EffectiveMechPackingSpeedMult ?? 1f;
+            }
+
+            int baseTicks = isFieldPacking
+                ? (CE_MagazineFedMod.Settings?.TicksPerRoundField ?? 18)
+                : (CE_MagazineFedMod.Settings?.TicksPerRoundIdle ?? 9);
+            float exactTicksPerRound = baseTicks / Mathf.Max(0.05f, speed);
+            int minTicks = isFieldPacking ? 4 : 2;
+            int cap = Mathf.Max(1, maxBatchRounds);
+
+            if (exactTicksPerRound < 3f && cap > 1)
+            {
+                batchRounds = Mathf.Clamp(Mathf.CeilToInt(6f / Mathf.Max(0.05f, exactTicksPerRound)), 1, Mathf.Min(cap, 25));
+                return Mathf.Max(minTicks, Mathf.RoundToInt(exactTicksPerRound * batchRounds));
+            }
+
+            batchRounds = 1;
+            return Mathf.Max(minTicks, Mathf.CeilToInt(exactTicksPerRound));
+        }
+
+        /// <summary>
+        /// Shared player-triggered command to immediately pack & organize a colonist/mechanoid's magazines.
+        /// </summary>
+        public static bool TryOrderPackNow(Pawn pawn, bool showMessages = true)
+        {
+            if (pawn == null || pawn.Dead) return false;
+
+            bool allowDraftedInvPack = pawn.Drafted && MoveWhileReloadUtility.CanMoveWhileReloading(pawn);
+            if (pawn.Drafted && !allowDraftedInvPack)
+            {
+                if (showMessages)
+                {
+                    Messages.Message("CEMF_UI_PackNowDrafted".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.RejectInput, false);
+                }
+                return false;
+            }
+            if (pawn.CurJobDef == CEMF_DefOf.CEMF_PackMagazines)
+            {
+                if (showMessages)
+                {
+                    Messages.Message("CEMF_UI_PackNowAlready".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.NeutralEvent, false);
+                }
+                return false;
+            }
+            if (!JobGiver_PackMagazines.CanAttemptPacking(pawn, allowDrafted: allowDraftedInvPack))
+            {
+                if (showMessages)
+                {
+                    Messages.Message("CEMF_UI_PackNowIncapable".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.RejectInput, false);
+                }
+                return false;
+            }
+
+            if (allowDraftedInvPack)
+            {
+                if (!JobGiver_PackMagazines.HasInventoryOnlyPackingWork(pawn))
+                {
+                    if (showMessages)
+                    {
+                        Messages.Message("CEMF_UI_PackNowDraftedNoAmmo".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.NeutralEvent, false);
+                    }
+                    return false;
+                }
+                Job draftedJob = JobMaker.MakeJob(CEMF_DefOf.CEMF_PackMagazines, pawn);
+                draftedJob.playerForced = true;
+                bool draftedAccepted = MoveWhileReloadUtility.StartJobPreservingMove(pawn, draftedJob, useOrderedJob: true);
+                if (draftedAccepted && showMessages)
+                {
+                    Messages.Message("CEMF_UI_PackNowOrdered".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.PositiveEvent, false);
+                }
+                return draftedAccepted;
+            }
+
+            var mgr = GameComponent_MagazineManager.Instance;
+            if (mgr != null)
+            {
+                bool preferRecycle = CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true;
+                foreach (var w in GetManagedWeapons(pawn))
+                {
+                    var ca = w.TryGetComp<CompAmmoUser>();
+                    if (IsMagazineFedWeapon(ca))
+                    {
+                        var cfg = mgr.GetOrCreateConfig(pawn, ca);
+                        if (cfg != null)
+                        {
+                            mgr.EnsureMagazinesForConfig(pawn, cfg, allowCreateNew: !preferRecycle, reservePackingHeadroom: true);
+                        }
+                    }
+                }
+            }
+
+            if (!JobGiver_PackMagazines.HasActionablePackingWork(pawn))
+            {
+                if (showMessages)
+                {
+                    if (mgr != null && mgr.PawnNeedsPacking(pawn, out var missing) && missing.Count > 0)
+                    {
+                        var compInv = pawn.TryGetComp<CompInventory>();
+                        bool blockedBySpace = compInv != null && missing.All(kv => kv.Key == null || !compInv.CanFitInInventory(kv.Key, out int fit) || fit <= 0);
+                        if (blockedBySpace)
+                        {
+                            Messages.Message("CEMF_UI_PackNowInventoryFull".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.RejectInput, false);
+                            return false;
+                        }
+                    }
+                    Messages.Message("CEMF_UI_PackNowNotNeeded".Translate(pawn.LabelShortCap), MessageTypeDefOf.NeutralEvent, false);
+                }
+                return false;
+            }
+
+            Job job = JobMaker.MakeJob(CEMF_DefOf.CEMF_PackMagazines, pawn);
+            job.playerForced = true;
+            bool accepted = MoveWhileReloadUtility.StartJobPreservingMove(pawn, job, useOrderedJob: true);
+            if (accepted && showMessages)
+            {
+                Messages.Message("CEMF_UI_PackNowOrdered".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.PositiveEvent, false);
+            }
+            return accepted;
         }
 
         public static bool ShouldUseMagazineSystem(CompAmmoUser compAmmo)

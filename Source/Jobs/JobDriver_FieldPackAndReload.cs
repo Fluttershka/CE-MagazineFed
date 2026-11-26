@@ -25,6 +25,7 @@ namespace CE_MagazineFed
         private AmmoPlan targetPlan;
         private int nextSlotToFill;
         private int roundsPackedSoFar;
+        private int pendingBatchCount = 1;
 
         public override bool TryMakePreToilReservations(bool errorOnFailed) => true;
 
@@ -34,6 +35,7 @@ namespace CE_MagazineFed
             Scribe_References.Look(ref workingMag, "workingMag");
             Scribe_Values.Look(ref nextSlotToFill, "nextSlotToFill", 0);
             Scribe_Values.Look(ref roundsPackedSoFar, "roundsPackedSoFar", 0);
+            Scribe_Values.Look(ref pendingBatchCount, "pendingBatchCount", 1);
         }
 
         private AmmoPlan ResolveTargetPlan()
@@ -151,28 +153,38 @@ namespace CE_MagazineFed
             prepToil.defaultCompleteMode = ToilCompleteMode.Instant;
             yield return prepToil;
 
-            // Step 2: Slowly pack one round at a time into workingMag
+            // Step 2: Slowly pack rounds into workingMag (scaled by ReloadSpeed & mech speed multiplier)
             Toil packOneRoundToil = new Toil { actor = pawn };
             packOneRoundToil.initAction = () =>
             {
-                packOneRoundToil.actor.pather?.StopDead();
-                float speed = Mathf.Max(0.2f, pawn.GetStatValue(CE_StatDefOf.ReloadSpeed));
-                int baseTicks = CE_MagazineFedMod.Settings?.TicksPerRoundField ?? 18;
-                packOneRoundToil.defaultDuration = Mathf.Max(4, Mathf.CeilToInt(baseTicks / speed));
+                if (!MoveWhileReloadUtility.CanMoveWhileReloading(packOneRoundToil.actor))
+                {
+                    packOneRoundToil.actor.pather?.StopDead();
+                }
+                int remaining = workingMag != null ? Mathf.Max(1, workingMag.capacity - workingMag.LoadedCount) : 1;
+                packOneRoundToil.defaultDuration = MagazineUtility.GetPackingTicksAndBatch(pawn, isFieldPacking: true, maxBatchRounds: remaining, out pendingBatchCount);
                 ticksLeftThisToil = packOneRoundToil.defaultDuration;
             };
             packOneRoundToil.defaultCompleteMode = ToilCompleteMode.Delay;
             packOneRoundToil.AddFinishAction(() =>
             {
-                if (workingMag == null || workingMag.Destroyed || workingMag.IsFull) return;
-                AmmoDef nextAmmo = PickNextLooseAmmoForFieldPack();
-                if (nextAmmo == null) return;
-                if (MagazineUtility.ConsumeLooseAmmoFromInventory(pawn, nextAmmo, 1) == 1)
+                int batch = Math.Max(1, pendingBatchCount);
+                for (int b = 0; b < batch; b++)
                 {
-                    workingMag.rounds.Add(nextAmmo);
-                    nextSlotToFill = workingMag.LoadedCount;
-                    roundsPackedSoFar++;
-                    MagazineUtility.TryApplyPackingThumbInjury(pawn, isFieldPacking: true);
+                    if (workingMag == null || workingMag.Destroyed || workingMag.IsFull) break;
+                    AmmoDef nextAmmo = PickNextLooseAmmoForFieldPack();
+                    if (nextAmmo == null) break;
+                    if (MagazineUtility.ConsumeLooseAmmoFromInventory(pawn, nextAmmo, 1) == 1)
+                    {
+                        workingMag.rounds.Add(nextAmmo);
+                        nextSlotToFill = workingMag.LoadedCount;
+                        roundsPackedSoFar++;
+                        MagazineUtility.TryApplyPackingThumbInjury(pawn, isFieldPacking: true);
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
             });
             yield return packOneRoundToil.WithProgressBar(TargetIndex.A, () =>
@@ -189,7 +201,10 @@ namespace CE_MagazineFed
             Toil insertWaitToil = new Toil { actor = pawn };
             insertWaitToil.initAction = () =>
             {
-                insertWaitToil.actor.pather?.StopDead();
+                if (!MoveWhileReloadUtility.CanMoveWhileReloading(insertWaitToil.actor))
+                {
+                    insertWaitToil.actor.pather?.StopDead();
+                }
                 float reloadTime = CompAmmo?.Props?.reloadTime ?? 1.5f;
                 if (CE_Utility.GetPrimaryVerbPropsCE(Weapon)?.useEquipmentStatValues ?? false)
                 {

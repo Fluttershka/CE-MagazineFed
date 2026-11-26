@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using CombatExtended;
 using RimWorld;
+using RimWorld.Planet;
+using UnityEngine;
 using Verse;
 using Verse.AI;
+using Verse.AI.Group;
 
 namespace CE_MagazineFed
 {
@@ -17,6 +20,7 @@ namespace CE_MagazineFed
         public List<AmmoPlanPreset> presets = new List<AmmoPlanPreset>();
 
         private const int CleanupCheckIntervalTicks = 240;
+        private const int MechScheduleIntervalTicks = 120;
 
         public static GameComponent_MagazineManager Instance => Current.Game?.GetComponent<GameComponent_MagazineManager>();
 
@@ -29,14 +33,35 @@ namespace CE_MagazineFed
         {
             base.GameComponentTick();
             var settings = CE_MagazineFedMod.Settings;
-            if (settings == null || !settings.autoCleanupEmptyGroundMags) return;
-            if (CEMF_DefOf.CEMF_Magazine == null) return;
+            if (settings == null || Find.TickManager == null) return;
 
             int now = Find.TickManager.TicksGame;
-            if (now % CleanupCheckIntervalTicks != 0) return;
-
             var maps = Find.Maps;
             if (maps == null) return;
+
+            // Low-frequency staggered safe dispatcher for player-controlled mechanoids
+            if (settings.enableForMechanoids && now % MechScheduleIntervalTicks == 0)
+            {
+                int slotPhase = (now / MechScheduleIntervalTicks) & 1;
+                for (int m = 0; m < maps.Count; m++)
+                {
+                    Map map = maps[m];
+                    if (map?.mapPawns == null) continue;
+                    var factionPawns = map.mapPawns.PawnsInFaction(Faction.OfPlayer);
+                    if (factionPawns == null) continue;
+
+                    for (int i = 0; i < factionPawns.Count; i++)
+                    {
+                        Pawn p = factionPawns[i];
+                        if (p == null || p.RaceProps == null || !p.RaceProps.IsMechanoid) continue;
+                        if ((p.thingIDNumber & 1) != slotPhase) continue;
+                        TryDispatchMechanoidAmmoJob(p);
+                    }
+                }
+            }
+
+            if (!settings.autoCleanupEmptyGroundMags || CEMF_DefOf.CEMF_Magazine == null) return;
+            if (now % CleanupCheckIntervalTicks != 0) return;
             int delayTicks = settings.EmptyMagCleanupTicks;
 
             for (int m = 0; m < maps.Count; m++)
@@ -125,7 +150,8 @@ namespace CE_MagazineFed
             if (pawn == null || compAmmo == null || compAmmo.CurAmmoSet == null) return null;
             bool isSingle = MagazineUtility.IsSingleLoadMultiCapacityWeapon(compAmmo);
             var data = GetOrCreatePawnData(pawn);
-            return data.GetOrCreateConfig(compAmmo.CurAmmoSet, compAmmo.MagSize, isSingle, compAmmo.CurrentAmmo ?? compAmmo.SelectedAmmo);
+            int? initialOverride = isSingle ? null : (int?)MagazineUtility.ComputeInitialMagCountForPawn(pawn, compAmmo);
+            return data.GetOrCreateConfig(compAmmo.CurAmmoSet, compAmmo.MagSize, isSingle, compAmmo.CurrentAmmo ?? compAmmo.SelectedAmmo, initialOverride);
         }
 
         public PawnWeaponAmmoConfig GetConfig(Pawn pawn, AmmoSetDef ammoSet, int capacity, bool isSingleLoad)
@@ -157,9 +183,9 @@ namespace CE_MagazineFed
         /// <summary>
         /// Ensures the pawn has physical empty magazines provisioned up to `config.targetTotalMags`
         /// (accounting for any magazine currently inserted in a matching weapon), and removes excess completely empty magazines
-        /// if the player reduced targetTotalMags.
+        /// if the player reduced targetTotalMags. Respects CE carry bulk & weight limits to avoid overburdening.
         /// </summary>
-        public void EnsureMagazinesForConfig(Pawn pawn, PawnWeaponAmmoConfig config, bool allowCreateNew = true)
+        public void EnsureMagazinesForConfig(Pawn pawn, PawnWeaponAmmoConfig config, bool allowCreateNew = true, bool reservePackingHeadroom = false, bool allowLooseAmmoBulkReclaim = false)
         {
             if (pawn == null || config == null || config.isSingleLoad) return;
             if (!MagazineUtility.ShouldUseMagazineSystem(pawn)) return;
@@ -252,12 +278,46 @@ namespace CE_MagazineFed
                 }
             }
 
-            // Provision missing empty magazines (only when allowed & auto-provision setting enabled)
+            // Provision missing empty magazines (only when allowed, auto-provision enabled, and carry space permits)
             if (allowCreateNew && (CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true) && totalOwned < config.targetTotalMags)
             {
+                var compInv = pawn.TryGetComp<CompInventory>();
+                float availBulk = float.MaxValue;
+                float availWeight = float.MaxValue;
+                float remainingReclaimBulk = 0f;
+                if (compInv != null)
+                {
+                    compInv.UpdateInventory();
+                    availBulk = Mathf.Max(0f, compInv.capacityBulk - compInv.currentBulk);
+                    availWeight = Mathf.Max(0f, compInv.capacityWeight - compInv.currentWeight);
+                    if (allowLooseAmmoBulkReclaim)
+                    {
+                        remainingReclaimBulk = MagazineUtility.ComputeCompatibleLooseAmmoBulkInInventory(pawn, config.ammoSet);
+                    }
+                }
+
+                float magBulk = Mathf.Max(0.01f, MagazineUtility.EstimateFullMagazineBulk(config.ammoSet, config.capacity));
+                float emptyMass = Mathf.Max(0.01f, MagazineUtility.EstimateEmptyMagazineMass(config.capacity));
+                float headroom = reservePackingHeadroom
+                    ? Mathf.Min(magBulk * 0.5f, MagazineUtility.GetCaliberReferenceBulk(config.ammoSet) * Mathf.Min(config.capacity, 10))
+                    : 0f;
+
                 int needed = config.targetTotalMags - totalOwned;
                 for (int k = 0; k < needed; k++)
                 {
+                    if (compInv != null)
+                    {
+                        float reclaimHere = Mathf.Min(remainingReclaimBulk, magBulk);
+                        float effectiveAvailBulk = availBulk + reclaimHere;
+                        if (effectiveAvailBulk + 0.001f < magBulk + headroom || availWeight + 0.001f < emptyMass)
+                        {
+                            break;
+                        }
+                        remainingReclaimBulk -= reclaimHere;
+                        availBulk = effectiveAvailBulk - magBulk;
+                        availWeight -= emptyMass;
+                    }
+
                     int freeSlot = -1;
                     for (int slot = 0; slot < config.targetTotalMags; slot++)
                     {
@@ -275,7 +335,7 @@ namespace CE_MagazineFed
                         break;
                     }
                 }
-                pawn.TryGetComp<CompInventory>()?.UpdateInventory();
+                compInv?.UpdateInventory();
             }
             // Remove excess EMPTY magazines if player lowered targetTotalMags
             else if (totalOwned > config.targetTotalMags)
@@ -336,23 +396,54 @@ namespace CE_MagazineFed
                     {
                         // Count inserted magazines across all matching weapons sharing this config
                         int inGun = 0;
+                        var usedSlots = new HashSet<int>();
                         for (int k = 0; k < weapons.Count; k++)
                         {
                             var kCa = weapons[k].TryGetComp<CompAmmoUser>();
                             if (!MagazineUtility.IsMagazineFedWeapon(kCa) || kCa.CurAmmoSet != config.ammoSet || kCa.MagSize != config.capacity) continue;
                             var kCm = weapons[k].TryGetComp<CompWeaponMagazine>();
-                            if (kCm != null && kCm.hasInsertedMagazine) inGun++;
+                            if (kCm != null && kCm.hasInsertedMagazine)
+                            {
+                                inGun++;
+                                if (kCm.insertedMagPlanIndex >= 0 && kCm.insertedMagPlanIndex < config.targetTotalMags)
+                                {
+                                    usedSlots.Add(kCm.insertedMagPlanIndex);
+                                }
+                            }
                         }
 
                         var invMags = MagazineUtility.GetMagazinesInInventory(pawn, config.ammoSet, config.capacity);
+                        for (int i = 0; i < invMags.Count; i++)
+                        {
+                            if (invMags[i].preferredPlanIndex >= 0 && invMags[i].preferredPlanIndex < config.targetTotalMags)
+                            {
+                                usedSlots.Add(invMags[i].preferredPlanIndex);
+                            }
+                        }
+
                         if ((invMags.Count + inGun) < config.targetTotalMags)
                         {
-                            bool canProvision = CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true;
+                            bool autoProvision = CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true;
+                            int maxFitNew = autoProvision
+                                ? MagazineUtility.CountMaxNewMagazinesFit(pawn, config.ammoSet, config.capacity, includeCompatibleLooseAmmoReclaim: true)
+                                : 0;
                             bool canRecycle = (CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true)
                                               && FindBestCompatibleMapMagazine(pawn, config.ammoSet, config.capacity) != null;
-                            if (canProvision || canRecycle)
+
+                            if (maxFitNew > 0 || canRecycle)
                             {
                                 needsWork = true;
+                            }
+
+                            int unprovisionedSlots = Math.Min(config.targetTotalMags - (invMags.Count + inGun), Math.Max(maxFitNew, canRecycle ? 1 : 0));
+                            int addedDemand = 0;
+                            for (int slot = 0; slot < config.targetTotalMags && addedDemand < unprovisionedSlots; slot++)
+                            {
+                                if (usedSlots.Add(slot))
+                                {
+                                    AccumulateMissingAmmo(config.GetPlan(slot), null, missingAmmoNeeded);
+                                    addedDemand++;
+                                }
                             }
                         }
 
@@ -427,6 +518,178 @@ namespace CE_MagazineFed
             }
 
             return needsWork;
+        }
+
+        public static bool IsHostileThreatNear(Pawn pawn, float radius)
+        {
+            if (pawn == null || !pawn.Spawned || pawn.Map?.attackTargetsCache == null) return false;
+            var targets = pawn.Map.attackTargetsCache.GetPotentialTargetsFor(pawn);
+            if (targets == null) return false;
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                IAttackTarget t = targets[i];
+                if (t?.Thing != null && t.Thing.Spawned && !t.ThreatDisabled(pawn) && t.Thing.Position.InHorDistOf(pawn.Position, radius))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static bool IsEscortOverseerSafeForPacking(Pawn mech, Pawn overseer)
+        {
+            if (mech == null || overseer == null || overseer.Dead || overseer.Downed || overseer.Drafted) return false;
+            if (!overseer.Spawned || overseer.Map != mech.Map) return false;
+            if (Find.TickManager.TicksGame - overseer.LastAttackTargetTick < 240) return false;
+            if (IsHostileThreatNear(overseer, 35f)) return false;
+            return true;
+        }
+
+        private void TryDispatchMechanoidAmmoJob(Pawn mech)
+        {
+            if (!MagazineUtility.IsPlayerControlledMechanoid(mech)) return;
+            if (!JobGiver_PackMagazines.CanAttemptPacking(mech)) return;
+
+            var weapons = MagazineUtility.GetManagedWeapons(mech);
+            if (weapons.Count == 0) return;
+
+            JobDef curDef = mech.CurJobDef;
+            if (curDef == CEMF_DefOf.CEMF_ReloadMagazine
+                || curDef == CEMF_DefOf.CEMF_FieldPackAndReload
+                || curDef == CE_JobDefOf.ReloadWeapon)
+            {
+                return;
+            }
+            if (mech.stances?.FullBodyBusy == true) return;
+            if (mech.jobs?.jobQueue != null && mech.jobs.jobQueue.Count > 0) return;
+
+            // Energy / charging / shutdown guard
+            if (ModsConfig.BiotechActive)
+            {
+                if (RestUtility.IsCharging(mech) || curDef == JobDefOf.MechCharge || curDef == JobDefOf.SelfShutdown)
+                {
+                    return;
+                }
+                if (mech.needs?.energy != null && (mech.needs.energy.IsLowEnergySelfShutdown || mech.needs.energy.IsSelfShutdown))
+                {
+                    return;
+                }
+            }
+
+            // Caravan / Lord duty guard
+            if (CaravanFormingUtility.IsFormingCaravan(mech) || mech.GetLord() != null) return;
+
+            // Combat safety guard
+            if (Find.TickManager.TicksGame - mech.LastAttackTargetTick < 300) return;
+            if (curDef == JobDefOf.AttackStatic
+                || curDef == JobDefOf.AttackMelee
+                || curDef == JobDefOf.Wait_Combat
+                || curDef == JobDefOf.Flee
+                || curDef == JobDefOf.FleeAndCower
+                || curDef == JobDefOf.FleeAndCowerShort)
+            {
+                return;
+            }
+            if (IsHostileThreatNear(mech, 35f)) return;
+
+            // Biotech work mode & current-job interruptibility check
+            var settings = CE_MagazineFedMod.Settings;
+            MechWorkModeDef workMode = ModsConfig.BiotechActive ? MechanitorUtility.GetMechWorkMode(mech) : null;
+            if (ModsConfig.BiotechActive && (workMode == MechWorkModeDefOf.Recharge || workMode == MechWorkModeDefOf.SelfShutdown))
+            {
+                return;
+            }
+
+            bool isIdleOrPatrol = curDef == null
+                || curDef == JobDefOf.GotoWander
+                || curDef == JobDefOf.Wait_Wander
+                || curDef == JobDefOf.Wait
+                || curDef == JobDefOf.Wait_MaintainPosture;
+
+            if (ModsConfig.BiotechActive && workMode == MechWorkModeDefOf.Escort)
+            {
+                if (!(settings?.allowEscortMechPacking ?? true)) return;
+                Pawn overseer = MechanitorUtility.GetOverseer(mech);
+                if (!IsEscortOverseerSafeForPacking(mech, overseer)) return;
+
+                bool escortIdleNearOverseer = isIdleOrPatrol
+                    || ((curDef == JobDefOf.Follow || curDef == JobDefOf.FollowClose)
+                        && mech.Position.InHorDistOf(overseer.Position, 12f)
+                        && (overseer.pather == null || !overseer.pather.Moving));
+                if (!escortIdleNearOverseer) return;
+            }
+            else
+            {
+                if (!isIdleOrPatrol)
+                {
+                    bool canInterruptWork = settings != null
+                        && settings.packingPriority == PackingPriorityMode.BeforeWork
+                        && mech.CurJob != null
+                        && !mech.CurJob.playerForced
+                        && curDef.playerInterruptible
+                        && mech.carryTracker?.CarriedThing == null
+                        && curDef != JobDefOf.BeatFire
+                        && curDef != JobDefOf.Rescue
+                        && curDef != JobDefOf.TendPatient;
+                    if (!canInterruptWork) return;
+                }
+            }
+
+            // Tier 1: Auto-pack magazines (unless ManualOnly)
+            if (settings != null && settings.packingPriority != PackingPriorityMode.ManualOnly)
+            {
+                if (!JobGiver_PackMagazines.IsOnCooldown(mech))
+                {
+                    if (JobGiver_PackMagazines.HasActionablePackingWork(mech))
+                    {
+                        Job packJob = JobMaker.MakeJob(CEMF_DefOf.CEMF_PackMagazines, mech);
+                        packJob.playerForced = false;
+                        mech.jobs.StartJob(packJob, JobCondition.InterruptForced, null, false, true, null, JobTag.Misc, false, false);
+                        return;
+                    }
+                    if (PawnNeedsPacking(mech, out _))
+                    {
+                        JobGiver_PackMagazines.NotifyNoProgress(mech);
+                    }
+                }
+            }
+
+            // Tier 2: Undrafted post-combat tactical reload (swap to a fuller magazine / top up single-load tube)
+            for (int i = 0; i < weapons.Count; i++)
+            {
+                ThingWithComps weapon = weapons[i];
+                var ca = weapon.TryGetComp<CompAmmoUser>();
+                if (ca == null) continue;
+
+                if (MagazineUtility.IsMagazineFedWeapon(ca))
+                {
+                    if (ca.CurMagCount < ca.MagSize)
+                    {
+                        var bestMag = MagazineUtility.FindBestLoadedMagazine(mech, ca.CurAmmoSet, ca.MagSize, ca.SelectedAmmo);
+                        if (bestMag != null && bestMag.LoadedCount > ca.CurMagCount)
+                        {
+                            Job swapJob = JobMaker.MakeJob(CEMF_DefOf.CEMF_ReloadMagazine, mech, weapon, bestMag);
+                            swapJob.playerForced = false;
+                            mech.jobs.StartJob(swapJob, JobCondition.InterruptForced, null, false, true, null, JobTag.Misc, false, false);
+                            return;
+                        }
+                    }
+                }
+                else if (MagazineUtility.IsSingleLoadMultiCapacityWeapon(ca))
+                {
+                    if (ca.CurMagCount < ca.MagSize && ca.TryFindAmmoInInventory(out _))
+                    {
+                        Job reloadJob = ca.TryMakeReloadJob();
+                        if (reloadJob != null)
+                        {
+                            reloadJob.playerForced = false;
+                            mech.jobs.StartJob(reloadJob, JobCondition.InterruptForced, null, false, true, null, JobTag.Misc, false, false);
+                            return;
+                        }
+                    }
+                }
+            }
         }
 
         private static void AccumulateMissingAmmo(AmmoPlan plan, List<AmmoDef> currentRounds, Dictionary<AmmoDef, int> needed)
