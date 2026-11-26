@@ -21,6 +21,7 @@
   <CEMF_Settings_EmptyCleanupSeconds>Auto-cleanup delay for unowned empty magazines: {0}s</CEMF_Settings_EmptyCleanupSeconds>
   <CEMF_Settings_DestroyShellOnUnload>Automatically recycle/remove empty magazine shell after unloading</CEMF_Settings_DestroyShellOnUnload>
   <CEMF_Settings_ShowMultiColorBar>Show mixed-ammo color strip on weapon ammo gizmo</CEMF_Settings_ShowMultiColorBar>
+  <CEMF_Settings_EnableThumbInjury>Chance to injure right thumb while packing magazines (Off by default)</CEMF_Settings_EnableThumbInjury>
   <CEMF_Settings_TabGeneral>General Settings</CEMF_Settings_TabGeneral>
   <CEMF_Settings_TabWeapons>Weapon Feed Modes</CEMF_Settings_TabWeapons>
   <CEMF_Settings_FilterModAll>Mod Source: All ({0})</CEMF_Settings_FilterModAll>
@@ -77,6 +78,8 @@
   <CEMF_Mote_SwappingMag>Swapping magazine...</CEMF_Mote_SwappingMag>
   <CEMF_Mote_FieldPacking>Field-packing magazine...</CEMF_Mote_FieldPacking>
   <CEMF_Mote_PackingMag>Packing magazines...</CEMF_Mote_PackingMag>
+  <CEMF_Mote_ThumbInjured>Pinched thumb!</CEMF_Mote_ThumbInjured>
+  <CEMF_Msg_ThumbInjured>{0} injured their right thumb while loading a magazine.</CEMF_Msg_ThumbInjured>
   <CEMF_Gizmo_NextRound>Next round: {0}</CEMF_Gizmo_NextRound>
   <CEMF_Gizmo_SpareMags>Spare mags: {0} loaded ({1} rounds total)</CEMF_Gizmo_SpareMags>
   <CEMF_Gizmo_SingleLoadPlan>Single-load plan active (Next: {0})</CEMF_Gizmo_SingleLoadPlan>

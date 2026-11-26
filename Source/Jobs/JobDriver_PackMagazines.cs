@@ -606,6 +606,7 @@ namespace CE_MagazineFed
                         currentPackingMag.rounds.Add(pendingAmmo);
                     }
                     roundsPackedCount++;
+                    MagazineUtility.TryApplyPackingThumbInjury(pawn, isFieldPacking: false);
                 }
             });
             yield return packOneRoundToil.WithProgressBar(TargetIndex.A, () =>

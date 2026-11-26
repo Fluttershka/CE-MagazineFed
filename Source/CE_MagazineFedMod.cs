@@ -47,6 +47,7 @@ namespace CE_MagazineFed
         public float emptyMagCleanupSeconds = 15f;
         public bool destroyShellOnUnload = true;
         public bool showMultiColorGizmoBar = true;
+        public bool enablePackingThumbInjury = false;
 
         /// <summary>
         /// Per-weapon feeding mode override keyed by weapon ThingDef.defName. Only non-Auto entries are stored.
@@ -97,6 +98,7 @@ namespace CE_MagazineFed
             Scribe_Values.Look(ref emptyMagCleanupSeconds, "emptyMagCleanupSeconds", 15f);
             Scribe_Values.Look(ref destroyShellOnUnload, "destroyShellOnUnload", true);
             Scribe_Values.Look(ref showMultiColorGizmoBar, "showMultiColorGizmoBar", true);
+            Scribe_Values.Look(ref enablePackingThumbInjury, "enablePackingThumbInjury", false);
             Scribe_Collections.Look(ref weaponFeedOverrides, "weaponFeedOverrides", LookMode.Value, LookMode.Value, ref scribeOverrideKeys, ref scribeOverrideValues);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit && weaponFeedOverrides == null)
@@ -238,7 +240,7 @@ namespace CE_MagazineFed
 
         private void DrawGeneralSettings(Rect inRect)
         {
-            Rect viewRect = new Rect(0f, 0f, inRect.width - 20f, 640f);
+            Rect viewRect = new Rect(0f, 0f, inRect.width - 20f, 680f);
             Widgets.BeginScrollView(inRect, ref generalScroll, viewRect);
 
             Listing_Standard listing = new Listing_Standard();
@@ -293,6 +295,7 @@ namespace CE_MagazineFed
             }
             listing.CheckboxLabeled("CEMF_Settings_DestroyShellOnUnload".Translate(), ref Settings.destroyShellOnUnload);
             listing.CheckboxLabeled("CEMF_Settings_ShowMultiColorBar".Translate(), ref Settings.showMultiColorGizmoBar);
+            listing.CheckboxLabeled("CEMF_Settings_EnableThumbInjury".Translate(), ref Settings.enablePackingThumbInjury);
 
             listing.End();
             Widgets.EndScrollView();

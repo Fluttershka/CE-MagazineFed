@@ -681,6 +681,75 @@ namespace CE_MagazineFed
             pawn.TryGetComp<CompInventory>()?.UpdateInventory();
         }
 
+        /// <summary>
+        /// Optional realism/flavor feature (disabled by default in Mod Settings):
+        /// Gives a small chance per packed round to mildly bruise or scratch the pawn's biological right thumb.
+        /// Never destroys/severs the thumb and ignores mechanoids or bionic/prosthetic hands.
+        /// </summary>
+        public static void TryApplyPackingThumbInjury(Pawn pawn, bool isFieldPacking)
+        {
+            if (!(CE_MagazineFedMod.Settings?.enablePackingThumbInjury ?? false)) return;
+            if (pawn == null || pawn.Dead || pawn.health?.hediffSet == null) return;
+            if (pawn.RaceProps == null || !pawn.RaceProps.IsFlesh || pawn.RaceProps.IsMechanoid) return;
+
+            // ~0.4% per round during idle packing (~11% per full 30-rd mag), ~0.8% per round under hurried combat field-packing
+            float chance = isFieldPacking ? 0.008f : 0.004f;
+            if (!Rand.Chance(chance)) return;
+
+            BodyPartRecord rightThumb = FindBiologicalRightThumb(pawn);
+            if (rightThumb == null) return;
+
+            // Never sever/destroy the thumb from loading magazines (only inflict minor 1-dmg injury when thumb HP > 2)
+            float curHp = pawn.health.hediffSet.GetPartHealth(rightThumb);
+            if (curHp <= 2f) return;
+
+            DamageDef dmgDef = Rand.Chance(0.55f) ? DamageDefOf.Scratch : DamageDefOf.Blunt;
+            DamageInfo dinfo = new DamageInfo(dmgDef, 1f, 0f, -1f, null, rightThumb, CEMF_DefOf.CEMF_Magazine);
+            dinfo.SetIgnoreArmor(true);
+            pawn.TakeDamage(dinfo);
+
+            if (pawn.Map != null)
+            {
+                MoteMaker.ThrowText(pawn.Position.ToVector3Shifted(), pawn.Map, "CEMF_Mote_ThumbInjured".Translate(), Color.red);
+            }
+            if (pawn.IsColonistPlayerControlled)
+            {
+                Messages.Message("CEMF_Msg_ThumbInjured".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.NegativeHealthEvent, false);
+            }
+        }
+
+        private static BodyPartRecord FindBiologicalRightThumb(Pawn pawn)
+        {
+            var hediffSet = pawn?.health?.hediffSet;
+            var allParts = pawn?.RaceProps?.body?.AllParts;
+            if (hediffSet == null || allParts == null) return null;
+
+            for (int i = 0; i < allParts.Count; i++)
+            {
+                var part = allParts[i];
+                if (part == null || part.def == null) continue;
+                if (hediffSet.PartIsMissing(part)) continue;
+                if (hediffSet.PartOrAnyAncestorHasDirectlyAddedParts(part)) continue;
+
+                string untrans = part.untranslatedCustomLabel ?? "";
+                if (untrans.IndexOf("right thumb", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return part;
+                }
+
+                // Fallback for custom races whose right thumb uses Finger + RightHand + thumb label
+                if (part.def.defName == "Finger"
+                    && part.groups != null
+                    && part.groups.Any(g => g != null && g.defName == "RightHand")
+                    && (untrans.IndexOf("thumb", StringComparison.OrdinalIgnoreCase) >= 0
+                        || (part.customLabel != null && part.customLabel.IndexOf("thumb", StringComparison.OrdinalIgnoreCase) >= 0)))
+                {
+                    return part;
+                }
+            }
+            return null;
+        }
+
         public static string GetShortAmmoLabel(AmmoDef def)
         {
             if (def == null) return "?";

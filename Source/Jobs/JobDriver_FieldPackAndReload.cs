@@ -141,6 +141,7 @@ namespace CE_MagazineFed
                     workingMag.rounds.Add(nextAmmo);
                     nextSlotToFill = workingMag.LoadedCount;
                     roundsPackedSoFar++;
+                    MagazineUtility.TryApplyPackingThumbInjury(pawn, isFieldPacking: true);
                 }
             });
             yield return packOneRoundToil.WithProgressBar(TargetIndex.A, () =>
