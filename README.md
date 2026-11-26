@@ -1,4 +1,4 @@
-# Combat Extended - Magazine Fed (CE 弹匣供弹)
+# Combat Extended - Magazine Fed
 
 ![Combat Extended - Magazine Fed](About/Preview.png)
 
@@ -67,7 +67,7 @@
 <Patch>
   <Operation Class="PatchOperationFindMod">
     <mods>
-      <li>Combat Extended - Magazine Fed (弹匣供弹)</li>
+      <li>Combat Extended - Magazine Fed</li>
     </mods>
     <match Class="PatchOperationConditional">
       <xpath>Defs/ThingDef[defName="YourMod_DoubleBarrelShotgun"]/modExtensions</xpath>

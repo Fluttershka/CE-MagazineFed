@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
   <!-- General / Mod Settings -->
-  <CEMF_ModName>Combat Extended - 弹匣供弹 (Magazine Fed)</CEMF_ModName>
+  <CEMF_ModName>Combat Extended - Magazine Fed</CEMF_ModName>
   <CEMF_Settings_FactionScope>适用范围</CEMF_Settings_FactionScope>
   <CEMF_Settings_FactionScope_PlayerOnly>仅玩家殖民地小人（默认，兼容性最佳）</CEMF_Settings_FactionScope_PlayerOnly>
   <CEMF_Settings_FactionScope_AllFactions>全阵营（玩家与敌方/中立 NPC 均使用弹匣）</CEMF_Settings_FactionScope_AllFactions>
