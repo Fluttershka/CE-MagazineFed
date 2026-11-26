@@ -21,6 +21,88 @@ namespace CE_MagazineFed
     {
         private static readonly Dictionary<string, Color> CategoryColorCache = new Dictionary<string, Color>();
         private static readonly Dictionary<ThingDef, OriginalAmmoProps> OriginalAmmoPropsCache = new Dictionary<ThingDef, OriginalAmmoProps>();
+        private static readonly Dictionary<AmmoSetDef, bool> PistolCaliberCache = new Dictionary<AmmoSetDef, bool>();
+
+        /// <summary>
+        /// Returns true if the given CE AmmoSetDef represents a pistol / SMG / PDW caliber,
+        /// false for rifle / high-caliber / shotgun / heavy-advanced calibers.
+        /// </summary>
+        public static bool IsPistolCaliber(AmmoSetDef ammoSet)
+        {
+            if (ammoSet == null) return false;
+            if (PistolCaliberCache.TryGetValue(ammoSet, out bool cached)) return cached;
+
+            bool result = ComputeIsPistolCaliber(ammoSet);
+            PistolCaliberCache[ammoSet] = result;
+            return result;
+        }
+
+        private static bool ComputeIsPistolCaliber(AmmoSetDef ammoSet)
+        {
+            bool hasExplicitRifleOrHeavy = false;
+            bool hasAdvancedPistolHint = false;
+
+            if (ammoSet.ammoTypes != null)
+            {
+                for (int i = 0; i < ammoSet.ammoTypes.Count; i++)
+                {
+                    AmmoDef ammo = ammoSet.ammoTypes[i]?.ammo;
+                    if (ammo == null) continue;
+
+                    if (ammo.thingCategories != null)
+                    {
+                        for (int c = 0; c < ammo.thingCategories.Count; c++)
+                        {
+                            ThingCategoryDef cat = ammo.thingCategories[c];
+                            while (cat != null)
+                            {
+                                string catDef = cat.defName;
+                                if (catDef == "AmmoPistols")
+                                {
+                                    return true;
+                                }
+                                if (catDef == "AmmoRifles" || catDef == "AmmoHighCaliber" || catDef == "AmmoShotguns")
+                                {
+                                    hasExplicitRifleOrHeavy = true;
+                                }
+                                cat = cat.parent;
+                            }
+                        }
+                    }
+
+                    if (MatchesPistolKeyword(ammo.defName))
+                    {
+                        hasAdvancedPistolHint = true;
+                    }
+
+                    string texPath = ammo.graphicData?.texPath;
+                    if (!string.IsNullOrEmpty(texPath))
+                    {
+                        if (texPath.IndexOf("Things/Ammo/Pistol", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            texPath.IndexOf("Charged/Small", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            texPath.IndexOf("PlasmaCell/Pistol", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            hasAdvancedPistolHint = true;
+                        }
+                    }
+                }
+            }
+
+            if (hasExplicitRifleOrHeavy) return false;
+            if (hasAdvancedPistolHint) return true;
+            if (MatchesPistolKeyword(ammoSet.defName)) return true;
+
+            return false;
+        }
+
+        private static bool MatchesPistolKeyword(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return false;
+            return name.IndexOf("Pistol", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("SMG", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("PDW", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("Sidearm", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
 
         public static bool TryGetOriginalAmmoProps(ThingDef def, out OriginalAmmoProps orig)
         {

@@ -35,6 +35,7 @@ namespace CE_MagazineFed
 
         private Graphic cachedCustomGraphic;
         private int cachedGraphicCapacity = -1;
+        private AmmoSetDef cachedGraphicAmmoSet;
 
         public int LoadedCount => rounds?.Count ?? 0;
         public bool IsEmpty => LoadedCount == 0;
@@ -60,12 +61,11 @@ namespace CE_MagazineFed
         {
             get
             {
-                if (cachedCustomGraphic == null || cachedGraphicCapacity != capacity)
+                if (cachedCustomGraphic == null || cachedGraphicCapacity != capacity || cachedGraphicAmmoSet != ammoSet)
                 {
                     cachedGraphicCapacity = capacity;
-                    string texPath = capacity <= 18
-                        ? "UI/Icons/CEMF_Mag_Pistol"
-                        : (capacity >= 55 ? "UI/Icons/CEMF_Mag_Drum" : "UI/Icons/CEMF_Mag_Rifle");
+                    cachedGraphicAmmoSet = ammoSet;
+                    string texPath = CEMF_Textures.GetMagazineTexPath(ammoSet, capacity);
                     cachedCustomGraphic = GraphicDatabase.Get<Graphic_Single>(texPath, ShaderDatabase.Cutout, new Vector2(0.75f, 0.75f), Color.white);
                 }
                 return cachedCustomGraphic ?? base.Graphic;

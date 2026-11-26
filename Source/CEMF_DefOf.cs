@@ -1,3 +1,4 @@
+using CombatExtended;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -26,9 +27,19 @@ namespace CE_MagazineFed
         public static readonly Texture2D ManageMags = ContentFinder<Texture2D>.Get("UI/Buttons/CEMF_ManageMags", false) ?? BaseContent.BadTex;
         public static readonly Texture2D PackNow = ContentFinder<Texture2D>.Get("UI/Buttons/CEMF_PackNow", false) ?? BaseContent.BadTex;
         public static readonly Texture2D PortLoad = ContentFinder<Texture2D>.Get("UI/Buttons/CEMF_PortLoad", false) ?? ManageMags;
-        public static readonly Texture2D MagPistol = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Pistol", false) ?? BaseContent.BadTex;
-        public static readonly Texture2D MagRifle = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Rifle", false) ?? BaseContent.BadTex;
-        public static readonly Texture2D MagDrum = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Drum", false) ?? BaseContent.BadTex;
+
+        public static readonly Texture2D MagPistolSmall = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Pistol_Small", false) ?? BaseContent.BadTex;
+        public static readonly Texture2D MagPistolMed = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Pistol_Med", false) ?? BaseContent.BadTex;
+        public static readonly Texture2D MagPistolDrum = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Pistol_Drum", false) ?? BaseContent.BadTex;
+        public static readonly Texture2D MagRifleSmall = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Rifle_Small", false) ?? BaseContent.BadTex;
+        public static readonly Texture2D MagRifleMed = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Rifle_Med", false) ?? BaseContent.BadTex;
+        public static readonly Texture2D MagRifleDrum = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Mag_Rifle_Drum", false) ?? BaseContent.BadTex;
+
+        // Legacy aliases kept for backwards compatibility
+        public static readonly Texture2D MagPistol = MagPistolSmall;
+        public static readonly Texture2D MagRifle = MagRifleMed;
+        public static readonly Texture2D MagDrum = MagRifleDrum;
+
         public static readonly Texture2D TubeShotgun = ContentFinder<Texture2D>.Get("UI/Icons/CEMF_Tube_Shotgun", false) ?? BaseContent.BadTex;
         public static readonly Texture2D HeaderBanner = ContentFinder<Texture2D>.Get("UI/Backgrounds/CEMF_HeaderBanner", false) ?? BaseContent.BadTex;
         public static readonly Texture2D UnloadMagIcon = ContentFinder<Texture2D>.Get("UI/Buttons/CE_AutoLoader_Drop", false) ?? ManageMags;
@@ -40,11 +51,37 @@ namespace CE_MagazineFed
         public static readonly Texture2D CardSelectedBg = SolidColorMaterials.NewSolidColorTexture(new Color(0.23f, 0.26f, 0.29f, 0.98f));
         public static readonly Texture2D BorderColor = SolidColorMaterials.NewSolidColorTexture(new Color(0.34f, 0.36f, 0.39f, 0.92f));
 
+        public static string GetMagazineTexPath(AmmoSetDef ammoSet, int capacity)
+        {
+            if (MagazineUtility.IsPistolCaliber(ammoSet))
+            {
+                if (capacity <= 18) return "UI/Icons/CEMF_Mag_Pistol_Small";
+                if (capacity >= 50) return "UI/Icons/CEMF_Mag_Pistol_Drum";
+                return "UI/Icons/CEMF_Mag_Pistol_Med";
+            }
+
+            if (capacity <= 18) return "UI/Icons/CEMF_Mag_Rifle_Small";
+            if (capacity >= 50) return "UI/Icons/CEMF_Mag_Rifle_Drum";
+            return "UI/Icons/CEMF_Mag_Rifle_Med";
+        }
+
+        public static Texture2D GetMagazineIcon(AmmoSetDef ammoSet, int capacity)
+        {
+            if (MagazineUtility.IsPistolCaliber(ammoSet))
+            {
+                if (capacity <= 18) return MagPistolSmall;
+                if (capacity >= 50) return MagPistolDrum;
+                return MagPistolMed;
+            }
+
+            if (capacity <= 18) return MagRifleSmall;
+            if (capacity >= 50) return MagRifleDrum;
+            return MagRifleMed;
+        }
+
         public static Texture2D GetMagazineIcon(int capacity)
         {
-            if (capacity <= 18) return MagPistol;
-            if (capacity >= 55) return MagDrum;
-            return MagRifle;
+            return GetMagazineIcon(null, capacity);
         }
     }
 }

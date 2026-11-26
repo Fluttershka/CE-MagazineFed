@@ -456,7 +456,7 @@ namespace CE_MagazineFed
 
             Widgets.BeginScrollView(listOuter, ref magListScroll, viewRect);
             float curY = 0f;
-            Texture2D magTex = CEMF_Textures.GetMagazineIcon(config.capacity);
+            Texture2D magTex = CEMF_Textures.GetMagazineIcon(config.ammoSet, config.capacity);
 
             for (int i = 0; i < config.targetTotalMags; i++)
             {

@@ -21,7 +21,7 @@
       <li>Ammo</li>
     </thingCategories>
     <graphicData>
-      <texPath>UI/Icons/CEMF_Mag_Rifle</texPath>
+      <texPath>UI/Icons/CEMF_Mag_Rifle_Med</texPath>
       <graphicClass>Graphic_Single</graphicClass>
       <drawSize>0.75</drawSize>
     </graphicData>
