@@ -76,6 +76,7 @@
   <CEMF_Menu_FieldPack>现场压弹并装填（无可用满弹匣）</CEMF_Menu_FieldPack>
   <CEMF_Menu_NoMagOrAmmo>无可用弹匣或散弹</CEMF_Menu_NoMagOrAmmo>
   <CEMF_Mote_SwappingMag>更换弹匣...</CEMF_Mote_SwappingMag>
+  <CEMF_Mote_EjectingMag>退下弹匣中...</CEMF_Mote_EjectingMag>
   <CEMF_Mote_FieldPacking>现场压弹中...</CEMF_Mote_FieldPacking>
   <CEMF_Mote_PackingMag>压装弹匣中...</CEMF_Mote_PackingMag>
   <CEMF_Mote_ThumbInjured>戳伤大拇指！</CEMF_Mote_ThumbInjured>
@@ -94,6 +95,10 @@
   <CEMF_UI_PackNowTip>立即指派该殖民者按当前方案整理并装填弹匣（或补充单发弹仓弹药）。</CEMF_UI_PackNowTip>
   <CEMF_UI_PackNowOrdered>已指派 {0} 立即开始压弹整理。</CEMF_UI_PackNowOrdered>
   <CEMF_UI_PackNowNotNeeded>{0} 的弹匣已符合方案，或当前无可用散弹。</CEMF_UI_PackNowNotNeeded>
+  <CEMF_UI_PackNowDrafted>{0} 当前处于征召状态，请先解除征召再执行压装弹匣。</CEMF_UI_PackNowDrafted>
+  <CEMF_UI_PackNowAlready>{0} 当前已经在压装弹匣中。</CEMF_UI_PackNowAlready>
+  <CEMF_UI_PackNowIncapable>{0} 当前状态无法执行压装弹匣。</CEMF_UI_PackNowIncapable>
+  <CEMF_UI_PackNowInventoryFull>{0} 的背包剩余负重或体积不足，无法再去拾取所需弹药。</CEMF_UI_PackNowInventoryFull>
   <CEMF_UI_TotalMags>携带弹匣总数 (含枪内)：</CEMF_UI_TotalMags>
   <CEMF_UI_SparePreview>枪内 1 个 + 背包备用 {0} 个 | 预估总重 {1} kg / 体积 {2}</CEMF_UI_SparePreview>
   <CEMF_UI_MagSlotLabel>弹匣 #{0}</CEMF_UI_MagSlotLabel>

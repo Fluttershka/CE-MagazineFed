@@ -240,11 +240,24 @@ namespace CE_MagazineFed
 
         private void OrderPackNow(Pawn pawn)
         {
-            if (pawn == null || !JobGiver_PackMagazines.CanAttemptPacking(pawn))
+            if (pawn == null || pawn.Dead) return;
+
+            if (pawn.Drafted)
             {
-                Messages.Message("CEMF_UI_PackNowNotNeeded".Translate(pawn?.LabelShortCap ?? ""), MessageTypeDefOf.RejectInput, false);
+                Messages.Message("CEMF_UI_PackNowDrafted".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.RejectInput, false);
                 return;
             }
+            if (pawn.CurJobDef == CEMF_DefOf.CEMF_PackMagazines)
+            {
+                Messages.Message("CEMF_UI_PackNowAlready".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.NeutralEvent, false);
+                return;
+            }
+            if (!JobGiver_PackMagazines.CanAttemptPacking(pawn))
+            {
+                Messages.Message("CEMF_UI_PackNowIncapable".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+
             var mgr = GameComponent_MagazineManager.Instance;
             if (mgr != null)
             {
@@ -261,6 +274,16 @@ namespace CE_MagazineFed
             }
             if (!JobGiver_PackMagazines.HasActionablePackingWork(pawn))
             {
+                if (mgr != null && mgr.PawnNeedsPacking(pawn, out var missing) && missing.Count > 0)
+                {
+                    var compInv = pawn.TryGetComp<CompInventory>();
+                    bool blockedBySpace = compInv != null && missing.All(kv => kv.Key == null || !compInv.CanFitInInventory(kv.Key, out int fit) || fit <= 0);
+                    if (blockedBySpace)
+                    {
+                        Messages.Message("CEMF_UI_PackNowInventoryFull".Translate(pawn.LabelShortCap), pawn, MessageTypeDefOf.RejectInput, false);
+                        return;
+                    }
+                }
                 Messages.Message("CEMF_UI_PackNowNotNeeded".Translate(pawn.LabelShortCap), MessageTypeDefOf.NeutralEvent, false);
                 return;
             }
@@ -446,6 +469,7 @@ namespace CE_MagazineFed
 
             // Gather live actual magazines for status mapping
             var invMags = MagazineUtility.GetMagazinesInInventory(selectedPawn, config.ammoSet, config.capacity);
+            var managedWeapons = MagazineUtility.GetManagedWeapons(selectedPawn);
             compMag?.SyncFromCompAmmo();
 
             // Bottom buttons height = 66px
@@ -461,7 +485,7 @@ namespace CE_MagazineFed
             for (int i = 0; i < config.targetTotalMags; i++)
             {
                 AmmoPlan plan = config.GetPlan(i);
-                List<AmmoDef> actualRounds = GetActualRoundsForSlot(i, compMag, invMags, out bool inGun, out bool exists);
+                List<AmmoDef> actualRounds = GetActualRoundsForSlot(i, config, compMag, managedWeapons, invMags, out bool inGun, out bool exists);
 
                 Rect card = new Rect(0f, curY, viewRect.width, cardH);
                 bool isSel = i == selectedMagIndex;
@@ -626,7 +650,8 @@ namespace CE_MagazineFed
             else
             {
                 var invMags = MagazineUtility.GetMagazinesInInventory(selectedPawn, config.ammoSet, config.capacity);
-                actualRounds = GetActualRoundsForSlot(selectedMagIndex, compMag, invMags, out _, out _);
+                var managedWeapons = MagazineUtility.GetManagedWeapons(selectedPawn);
+                actualRounds = GetActualRoundsForSlot(selectedMagIndex, config, compMag, managedWeapons, invMags, out _, out _);
             }
 
             // ---- Section A: Ammo Palette ----
@@ -960,15 +985,38 @@ namespace CE_MagazineFed
             Find.WindowStack.Add(new FloatMenu(opts));
         }
 
-        private static List<AmmoDef> GetActualRoundsForSlot(int slotIndex, CompWeaponMagazine compMag, List<Thing_CEMagazine> invMags, out bool inGun, out bool exists)
+        private static List<AmmoDef> GetActualRoundsForSlot(
+            int slotIndex,
+            PawnWeaponAmmoConfig config,
+            CompWeaponMagazine selectedCompMag,
+            List<ThingWithComps> managedWeapons,
+            List<Thing_CEMagazine> invMags,
+            out bool inGun,
+            out bool exists)
         {
             inGun = false;
             exists = false;
-            if (compMag != null && compMag.hasInsertedMagazine && compMag.insertedMagPlanIndex == slotIndex)
+            if (selectedCompMag != null && selectedCompMag.hasInsertedMagazine && selectedCompMag.insertedMagPlanIndex == slotIndex)
             {
                 inGun = true;
                 exists = true;
-                return compMag.loadedRounds ?? new List<AmmoDef>();
+                return selectedCompMag.loadedRounds ?? new List<AmmoDef>();
+            }
+            if (managedWeapons != null && config != null)
+            {
+                for (int w = 0; w < managedWeapons.Count; w++)
+                {
+                    var ca = managedWeapons[w].TryGetComp<CompAmmoUser>();
+                    if (!MagazineUtility.IsMagazineFedWeapon(ca) || ca.CurAmmoSet != config.ammoSet || ca.MagSize != config.capacity) continue;
+                    var cm = managedWeapons[w].TryGetComp<CompWeaponMagazine>();
+                    if (cm != null && cm != selectedCompMag && cm.hasInsertedMagazine && cm.insertedMagPlanIndex == slotIndex)
+                    {
+                        cm.SyncFromCompAmmo();
+                        inGun = true;
+                        exists = true;
+                        return cm.loadedRounds ?? new List<AmmoDef>();
+                    }
+                }
             }
             for (int i = 0; i < invMags.Count; i++)
             {
@@ -1003,16 +1051,7 @@ namespace CE_MagazineFed
 
         private static void DrawColorStrip(Rect rect, List<AmmoDef> rounds, int capacity)
         {
-            Widgets.DrawBoxSolid(rect, new Color(0.07f, 0.08f, 0.10f, 1f));
-            if (rounds == null || rounds.Count == 0 || capacity <= 0) return;
-
-            float slotW = rect.width / capacity;
-            int count = Math.Min(rounds.Count, capacity);
-            for (int i = 0; i < count; i++)
-            {
-                Rect seg = new Rect(rect.x + i * slotW, rect.y, Mathf.Max(1f, slotW), rect.height);
-                Widgets.DrawBoxSolid(seg, MagazineUtility.GetAmmoColor(rounds[i]));
-            }
+            MagazineUtility.DrawMergedColorStrip(rect, rounds, capacity, new Color(0.07f, 0.08f, 0.10f, 1f));
         }
 
         private static void DrawPanelBox(Rect rect)

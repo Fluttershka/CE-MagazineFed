@@ -166,9 +166,8 @@ namespace CE_MagazineFed
 
             config.EnsurePlansMatchCount();
 
-            // Check if a matching weapon currently has an inserted magazine
-            int insertedPlanIndex = -1;
-            int insertedCount = 0;
+            // Gather all matching mag-fed weapons on this pawn that currently have an inserted magazine
+            var insertedComps = new List<CompWeaponMagazine>();
             var weapons = MagazineUtility.GetManagedWeapons(pawn);
             for (int i = 0; i < weapons.Count; i++)
             {
@@ -179,12 +178,43 @@ namespace CE_MagazineFed
                     var cm = weapons[i].TryGetComp<CompWeaponMagazine>();
                     if (cm != null && cm.hasInsertedMagazine)
                     {
-                        insertedCount++;
-                        if (cm.insertedMagPlanIndex < 0 || cm.insertedMagPlanIndex >= config.targetTotalMags)
+                        insertedComps.Add(cm);
+                    }
+                }
+            }
+
+            int insertedCount = insertedComps.Count;
+            if (config.targetTotalMags < insertedCount)
+            {
+                config.targetTotalMags = insertedCount;
+                config.EnsurePlansMatchCount();
+            }
+
+            // Normalize unique plan slot indices across all inserted magazines first
+            var usedIndices = new HashSet<int>();
+            for (int i = 0; i < insertedComps.Count; i++)
+            {
+                int idx = insertedComps[i].insertedMagPlanIndex;
+                if (idx >= 0 && idx < config.targetTotalMags && usedIndices.Add(idx))
+                {
+                    // Valid unique slot kept
+                }
+                else
+                {
+                    insertedComps[i].insertedMagPlanIndex = -1;
+                }
+            }
+            for (int i = 0; i < insertedComps.Count; i++)
+            {
+                if (insertedComps[i].insertedMagPlanIndex < 0)
+                {
+                    for (int slot = 0; slot < config.targetTotalMags; slot++)
+                    {
+                        if (usedIndices.Add(slot))
                         {
-                            cm.insertedMagPlanIndex = 0;
+                            insertedComps[i].insertedMagPlanIndex = slot;
+                            break;
                         }
-                        insertedPlanIndex = cm.insertedMagPlanIndex;
                     }
                 }
             }
@@ -192,12 +222,7 @@ namespace CE_MagazineFed
             var invMags = MagazineUtility.GetMagazinesInInventory(pawn, config.ammoSet, config.capacity);
             int totalOwned = insertedCount + invMags.Count;
 
-            // Normalize preferredPlanIndex assignments among owned magazines
-            var usedIndices = new HashSet<int>();
-            if (insertedPlanIndex >= 0 && insertedPlanIndex < config.targetTotalMags)
-            {
-                usedIndices.Add(insertedPlanIndex);
-            }
+            // Normalize preferredPlanIndex assignments among inventory magazines
             for (int i = 0; i < invMags.Count; i++)
             {
                 int idx = invMags[i].preferredPlanIndex;
@@ -302,38 +327,50 @@ namespace CE_MagazineFed
                 if (compAmmo == null || compAmmo.CurAmmoSet == null) continue;
 
                 var config = GetOrCreateConfig(pawn, compAmmo);
-                if (config == null || !processedConfigs.Add(config)) continue;
+                if (config == null) continue;
+                bool firstForConfig = processedConfigs.Add(config);
 
                 if (!config.isSingleLoad)
                 {
-                    // Check if we need magazines (either recycled from map or auto-provisioned)
-                    var invMags = MagazineUtility.GetMagazinesInInventory(pawn, config.ammoSet, config.capacity);
-                    int inGun = (compMag != null && compMag.hasInsertedMagazine) ? 1 : 0;
-                    if ((invMags.Count + inGun) < config.targetTotalMags)
+                    if (firstForConfig)
                     {
-                        bool canProvision = CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true;
-                        bool canRecycle = (CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true)
-                                          && FindBestCompatibleMapMagazine(pawn, config.ammoSet, config.capacity) != null;
-                        if (canProvision || canRecycle)
+                        // Count inserted magazines across all matching weapons sharing this config
+                        int inGun = 0;
+                        for (int k = 0; k < weapons.Count; k++)
                         {
-                            needsWork = true;
+                            var kCa = weapons[k].TryGetComp<CompAmmoUser>();
+                            if (!MagazineUtility.IsMagazineFedWeapon(kCa) || kCa.CurAmmoSet != config.ammoSet || kCa.MagSize != config.capacity) continue;
+                            var kCm = weapons[k].TryGetComp<CompWeaponMagazine>();
+                            if (kCm != null && kCm.hasInsertedMagazine) inGun++;
+                        }
+
+                        var invMags = MagazineUtility.GetMagazinesInInventory(pawn, config.ammoSet, config.capacity);
+                        if ((invMags.Count + inGun) < config.targetTotalMags)
+                        {
+                            bool canProvision = CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true;
+                            bool canRecycle = (CE_MagazineFedMod.Settings?.preferRecycleMapMagazines ?? true)
+                                              && FindBestCompatibleMapMagazine(pawn, config.ammoSet, config.capacity) != null;
+                            if (canProvision || canRecycle)
+                            {
+                                needsWork = true;
+                            }
+                        }
+
+                        // Check each inventory mag against its plan (once per config)
+                        for (int i = 0; i < invMags.Count; i++)
+                        {
+                            var mag = invMags[i];
+                            int slotIdx = mag.preferredPlanIndex >= 0 && mag.preferredPlanIndex < config.targetTotalMags ? mag.preferredPlanIndex : 0;
+                            var plan = config.GetPlan(slotIdx);
+                            if (!plan.MatchesExactly(mag.rounds))
+                            {
+                                needsWork = true;
+                                AccumulateMissingAmmo(plan, mag.rounds, missingAmmoNeeded);
+                            }
                         }
                     }
 
-                    // Check each inventory mag against its plan
-                    for (int i = 0; i < invMags.Count; i++)
-                    {
-                        var mag = invMags[i];
-                        int slotIdx = mag.preferredPlanIndex >= 0 && mag.preferredPlanIndex < config.targetTotalMags ? mag.preferredPlanIndex : 0;
-                        var plan = config.GetPlan(slotIdx);
-                        if (!plan.MatchesExactly(mag.rounds))
-                        {
-                            needsWork = true;
-                            AccumulateMissingAmmo(plan, mag.rounds, missingAmmoNeeded);
-                        }
-                    }
-
-                    // Also check if gun's inserted magazine doesn't match its plan (e.g. partially fired)
+                    // Check THIS weapon's inserted magazine against its plan (runs for every weapon including sidearms)
                     if (compMag != null && compMag.hasInsertedMagazine)
                     {
                         compMag.SyncFromCompAmmo();
@@ -419,9 +456,45 @@ namespace CE_MagazineFed
             }
         }
 
+        private void PruneStalePawnData()
+        {
+            if (pawnDataMap == null || pawnDataMap.Count == 0) return;
+
+            var validIds = new HashSet<int>();
+            var allKnown = PawnsFinder.AllMapsWorldAndTemporary_AliveOrDead;
+            if (allKnown != null)
+            {
+                for (int i = 0; i < allKnown.Count; i++)
+                {
+                    Pawn p = allKnown[i];
+                    if (p != null && (!p.Dead || p.Corpse != null))
+                    {
+                        validIds.Add(p.thingIDNumber);
+                    }
+                }
+            }
+
+            var staleKeys = new List<int>();
+            foreach (var kv in pawnDataMap)
+            {
+                if (kv.Value == null || kv.Value.configs == null || kv.Value.configs.Count == 0 || !validIds.Contains(kv.Key))
+                {
+                    staleKeys.Add(kv.Key);
+                }
+            }
+            for (int i = 0; i < staleKeys.Count; i++)
+            {
+                pawnDataMap.Remove(staleKeys[i]);
+            }
+        }
+
         public override void ExposeData()
         {
             base.ExposeData();
+            if (Scribe.mode == LoadSaveMode.Saving)
+            {
+                PruneStalePawnData();
+            }
             Scribe_Collections.Look(ref pawnDataMap, "pawnDataMap", LookMode.Value, LookMode.Deep, ref scribeKeys, ref scribeValues);
             Scribe_Collections.Look(ref presets, "presets", LookMode.Deep);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)

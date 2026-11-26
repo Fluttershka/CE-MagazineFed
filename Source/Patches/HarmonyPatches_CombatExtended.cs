@@ -159,31 +159,41 @@ namespace CE_MagazineFed
         public static bool Prefix(CompAmmoUser __instance, out Thing droppedAmmo, bool forceUnload, ref bool __result)
         {
             droppedAmmo = null;
-            if (!MagazineUtility.ShouldUseMagazineSystem(__instance)) return true;
-
-            var cm = __instance.parent.TryGetComp<CompWeaponMagazine>();
+            var cm = __instance.parent?.TryGetComp<CompWeaponMagazine>();
             if (cm == null) return true;
+
+            bool unheldManagedWeapon = __instance.Holder == null
+                && __instance.turret == null
+                && !(__instance.parent is Building_AutoloaderCE);
+
+            if (!unheldManagedWeapon && !MagazineUtility.ShouldUseMagazineSystem(__instance))
+            {
+                return true;
+            }
 
             // Case A: Magazine-fed weapon -> eject physical magazine intact!
             if (MagazineUtility.IsMagazineFedWeapon(__instance))
             {
-                if (!__instance.HasMagazine || __instance.Holder == null)
+                if (!__instance.HasMagazine || (__instance.Holder == null && __instance.parent.MapHeld == null))
                 {
                     __result = false;
                     return false;
                 }
-                if (cm.hasInsertedMagazine || __instance.CurMagCount > 0)
+                if (!cm.hasInsertedMagazine && __instance.CurMagCount <= 0)
                 {
-                    cm.EjectInsertedMagazine(__instance.Holder);
+                    __result = false;
+                    return false;
                 }
-                __result = true;
+                Thing_CEMagazine ejected = cm.EjectInsertedMagazine(__instance.Holder);
+                droppedAmmo = ejected;
+                __result = ejected != null;
                 return false;
             }
 
             // Case B: Single-load multi-capacity weapon -> unload every distinct AmmoDef in loadedRounds accurately
             if (MagazineUtility.IsSingleLoadMultiCapacityWeapon(__instance))
             {
-                if (!__instance.HasMagazine || __instance.Holder == null)
+                if (!__instance.HasMagazine || (__instance.Holder == null && __instance.parent.MapHeld == null))
                 {
                     __result = false;
                     return false;
@@ -214,7 +224,25 @@ namespace CE_MagazineFed
 
                 foreach (var kv in counts)
                 {
-                    MagazineUtility.AddOrDropLooseAmmo(__instance.Holder, kv.Key, kv.Value);
+                    if (__instance.Holder != null)
+                    {
+                        MagazineUtility.AddOrDropLooseAmmo(__instance.Holder, kv.Key, kv.Value);
+                    }
+                    else if (__instance.parent.MapHeld != null)
+                    {
+                        int rem = kv.Value;
+                        while (rem > 0)
+                        {
+                            int stack = Math.Min(rem, kv.Key.stackLimit);
+                            Thing t = ThingMaker.MakeThing(kv.Key);
+                            t.stackCount = stack;
+                            if (GenPlace.TryPlaceThing(t, __instance.parent.PositionHeld, __instance.parent.MapHeld, ThingPlaceMode.Near, out Thing placed) && droppedAmmo == null)
+                            {
+                                droppedAmmo = placed;
+                            }
+                            rem -= stack;
+                        }
+                    }
                 }
                 __result = true;
                 return false;
@@ -282,26 +310,62 @@ namespace CE_MagazineFed
             {
                 return true;
             }
+
+            var cm = __instance.parent.TryGetComp<CompWeaponMagazine>();
+            bool wantEjectOnly = false;
+            if (cm != null && cm.pendingEjectOnly)
+            {
+                wantEjectOnly = true;
+                cm.pendingEjectOnly = false;
+            }
+
             Pawn wielder = __instance.Wielder;
-            if (wielder == null || !__instance.IsEquippedGun) return false;
-            if (wielder.jobs?.curDriver is IJobDriver_Tactical) return false;
+            if (wielder == null || !__instance.IsEquippedGun)
+            {
+                if (cm != null) cm.pendingSelectedMag = null;
+                return false;
+            }
+            if (wielder.jobs?.curDriver is IJobDriver_Tactical)
+            {
+                if (cm != null) cm.pendingSelectedMag = null;
+                return false;
+            }
             Type rgStance = CE_Reflection.GetRgStance();
             if (rgStance != null && wielder.stances?.curStance != null && wielder.stances.curStance.GetType() == rgStance)
             {
+                if (cm != null) cm.pendingSelectedMag = null;
                 return false;
             }
 
             JobDef curDef = wielder.jobs?.curJob?.def;
             if (curDef == CEMF_DefOf.CEMF_ReloadMagazine || curDef == CEMF_DefOf.CEMF_FieldPackAndReload || curDef == CE_JobDefOf.ReloadWeapon)
             {
+                if (cm != null) cm.pendingSelectedMag = null;
                 return false;
             }
 
             int lastTick = CE_Reflection.LastReloadJobTick(__instance);
-            if (lastTick == GenTicks.TicksGame) return false;
+            if (lastTick == GenTicks.TicksGame)
+            {
+                if (cm != null) cm.pendingSelectedMag = null;
+                return false;
+            }
+
+            if (wantEjectOnly)
+            {
+                if (cm == null || (!cm.hasInsertedMagazine && __instance.CurMagCount <= 0)) return false;
+
+                Job ejectJob = JobMaker.MakeJob(CEMF_DefOf.CEMF_ReloadMagazine, wielder, __instance.parent);
+                ejectJob.count = 1;
+                CE_Reflection.LastReloadJobTick(__instance) = GenTicks.TicksGame;
+                ejectJob.playerForced = true;
+                wielder.jobs.StartJob(ejectJob, JobCondition.InterruptForced, null, wielder.CurJob?.def != ejectJob.def, true);
+                return false;
+            }
 
             if (!__instance.HasAmmo)
             {
+                if (cm != null) cm.pendingSelectedMag = null;
                 CE_Reflection.DoOutOfAmmoAction(__instance, Array.Empty<object>());
                 return false;
             }
@@ -614,6 +678,31 @@ namespace CE_MagazineFed
     [HarmonyPatch(typeof(Command_Reload), "BuildAmmoOptions")]
     public static class Patch_Command_Reload_BuildAmmoOptions
     {
+        private static List<CompAmmoUser> GetSelectedCompatibleMagFedComps(CompAmmoUser primaryCa)
+        {
+            var result = new List<CompAmmoUser>();
+            if (primaryCa != null) result.Add(primaryCa);
+
+            var selPawns = Find.Selector?.SelectedPawns;
+            if (selPawns == null || selPawns.Count <= 1 || primaryCa?.CurAmmoSet == null) return result;
+
+            for (int i = 0; i < selPawns.Count; i++)
+            {
+                Pawn p = selPawns[i];
+                if (p == null || p.Dead || p == primaryCa.Wielder) continue;
+                if (!MagazineUtility.ShouldUseMagazineSystem(p)) continue;
+
+                var otherCa = p.equipment?.Primary?.TryGetComp<CompAmmoUser>();
+                if (otherCa == null || result.Contains(otherCa)) continue;
+                if (!MagazineUtility.IsMagazineFedWeapon(otherCa)) continue;
+                if (otherCa.CurAmmoSet == primaryCa.CurAmmoSet && otherCa.MagSize == primaryCa.MagSize)
+                {
+                    result.Add(otherCa);
+                }
+            }
+            return result;
+        }
+
         public static bool Prefix(Command_Reload __instance, ref List<FloatMenuOption> __result)
         {
             CompAmmoUser ca = __instance.compAmmo;
@@ -638,8 +727,24 @@ namespace CE_MagazineFed
                             : "CEMF_Menu_InsertLooseMag".Translate(mag.LoadedCount, mag.capacity, summary);
                         options.Add(new FloatMenuOption(label, () =>
                         {
-                            if (cm != null) cm.pendingSelectedMag = mag;
-                            ca.TryStartReload();
+                            var groupComps = GetSelectedCompatibleMagFedComps(ca);
+                            for (int g = 0; g < groupComps.Count; g++)
+                            {
+                                var gCa = groupComps[g];
+                                var gCm = gCa.parent?.TryGetComp<CompWeaponMagazine>();
+                                if (gCa == ca)
+                                {
+                                    if (gCm != null) gCm.pendingSelectedMag = mag;
+                                }
+                                else if (gCa.Wielder != null && gCm != null)
+                                {
+                                    var peerMags = MagazineUtility.GetLoadedMagazinesInInventory(gCa.Wielder, gCa.CurAmmoSet, gCa.MagSize);
+                                    Thing_CEMagazine peerPick = peerMags.Find(m => mag.preferredPlanIndex >= 0 && m.preferredPlanIndex == mag.preferredPlanIndex)
+                                                                ?? MagazineUtility.FindBestLoadedMagazine(gCa.Wielder, gCa.CurAmmoSet, gCa.MagSize, mag.NextRound);
+                                    gCm.pendingSelectedMag = peerPick;
+                                }
+                                gCa.TryStartReload();
+                            }
                         }));
                     }
                 }
@@ -647,7 +752,11 @@ namespace CE_MagazineFed
                 {
                     options.Add(new FloatMenuOption("CEMF_Menu_FieldPack".Translate(), () =>
                     {
-                        ca.TryStartReload();
+                        var groupComps = GetSelectedCompatibleMagFedComps(ca);
+                        for (int g = 0; g < groupComps.Count; g++)
+                        {
+                            groupComps[g].TryStartReload();
+                        }
                     }));
                 }
                 else
@@ -657,10 +766,21 @@ namespace CE_MagazineFed
 
                 if (cm != null && (cm.hasInsertedMagazine || ca.CurMagCount > 0))
                 {
-                    options.Add(new FloatMenuOption("CEMF_Menu_EjectMag".Translate(), () =>
+                    bool canAct = !wielder.Dead && !wielder.Downed && !wielder.InMentalState;
+                    options.Add(new FloatMenuOption("CEMF_Menu_EjectMag".Translate(), canAct ? () =>
                     {
-                        ca.TryUnload(forceUnload: true);
-                    }));
+                        var groupComps = GetSelectedCompatibleMagFedComps(ca);
+                        for (int g = 0; g < groupComps.Count; g++)
+                        {
+                            var gCa = groupComps[g];
+                            var gCm = gCa.parent?.TryGetComp<CompWeaponMagazine>();
+                            if (gCm != null && (gCm.hasInsertedMagazine || gCa.CurMagCount > 0))
+                            {
+                                gCm.pendingEjectOnly = true;
+                                gCa.TryStartReload();
+                            }
+                        }
+                    } : (Action)null));
                 }
 
                 options.Add(new FloatMenuOption("CEMF_Menu_OpenManager".Translate(), () =>
@@ -948,17 +1068,10 @@ namespace CE_MagazineFed
 
             if (cm.loadedRounds.Count == 0 || ca.MagSize <= 0) return;
 
-            // Draw sleek 5px color-coded firing-order strip along bottom edge of gizmo
+            // Draw sleek 5px color-coded firing-order strip along bottom edge of gizmo (run-length merged)
             float width = __instance.GetWidth(maxWidth);
             Rect stripRect = new Rect(topLeft.x + 8f, topLeft.y + 66f, width - 16f, 5f);
-            Widgets.DrawBoxSolid(stripRect, new Color(0.08f, 0.08f, 0.1f, 0.9f));
-
-            float slotW = stripRect.width / ca.MagSize;
-            for (int i = 0; i < cm.loadedRounds.Count && i < ca.MagSize; i++)
-            {
-                Rect seg = new Rect(stripRect.x + i * slotW, stripRect.y, Mathf.Max(1f, slotW), stripRect.height);
-                Widgets.DrawBoxSolid(seg, MagazineUtility.GetAmmoColor(cm.loadedRounds[i]));
-            }
+            MagazineUtility.DrawMergedColorStrip(stripRect, cm.loadedRounds, ca.MagSize, new Color(0.08f, 0.08f, 0.1f, 0.9f));
         }
     }
 
@@ -1156,6 +1269,16 @@ namespace CE_MagazineFed
         {
             if (CE_MagazineFedMod.Settings?.factionScope != FactionScope.AllFactions) return;
             MagazineUtility.PackNpcInventoryIntoMagazines(pawn);
+        }
+    }
+
+    [HarmonyPatch(typeof(PawnInventoryGenerator), nameof(PawnInventoryGenerator.GenerateInventoryFor))]
+    public static class Patch_PawnInventoryGenerator_GenerateInventoryFor
+    {
+        public static void Postfix(Pawn p)
+        {
+            if (CE_MagazineFedMod.Settings?.factionScope != FactionScope.AllFactions) return;
+            MagazineUtility.PackNpcInventoryIntoMagazines(p);
         }
     }
 

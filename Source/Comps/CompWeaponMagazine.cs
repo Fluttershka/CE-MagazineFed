@@ -47,6 +47,12 @@ namespace CE_MagazineFed
         public Thing_CEMagazine pendingSelectedMag;
 
         /// <summary>
+        /// Transient: whether the next reload trigger should perform a timed magazine ejection only.
+        /// </summary>
+        [Unsaved]
+        public bool pendingEjectOnly;
+
+        /// <summary>
         /// Transient: specific ammo chosen by player for a tactical Port Load on SingleLoad weapons.
         /// </summary>
         [Unsaved]
@@ -55,6 +61,19 @@ namespace CE_MagazineFed
         public CompAmmoUser CompAmmo => parent.TryGetComp<CompAmmoUser>();
 
         public AmmoDef NextRound => loadedRounds != null && loadedRounds.Count > 0 ? loadedRounds[0] : CompAmmo?.CurrentAmmo;
+
+        public override void PostPostMake()
+        {
+            base.PostPostMake();
+            var ca = CompAmmo;
+            bool hasRounds = ca != null && ca.CurMagCount > 0;
+            hasInsertedMagazine = hasRounds || (CE_MagazineFedMod.Settings?.autoProvisionEmptyMags ?? true);
+            if (hasInsertedMagazine && ca != null)
+            {
+                insertedMagAmmoSet = ca.CurAmmoSet;
+                insertedMagCapacity = ca.MagSize;
+            }
+        }
 
         public override void PostSpawnSetup(bool respawningAfterLoad)
         {
@@ -74,6 +93,19 @@ namespace CE_MagazineFed
 
             int target = ca.CurMagCount;
             AmmoDef fill = ca.CurrentAmmo ?? ca.SelectedAmmo ?? ca.CurAmmoSet?.ammoTypes?.FirstOrDefault()?.ammo;
+
+            // Sanitize any stale rounds that no longer belong to CurAmmoSet (e.g. caliber/underbarrel switch)
+            if (ca.CurAmmoSet?.ammoTypes != null && fill != null)
+            {
+                for (int i = 0; i < loadedRounds.Count; i++)
+                {
+                    AmmoDef r = loadedRounds[i];
+                    if (r == null || !IsValidForSet(ca.CurAmmoSet, r))
+                    {
+                        loadedRounds[i] = fill;
+                    }
+                }
+            }
 
             if (loadedRounds.Count < target)
             {
@@ -276,11 +308,21 @@ namespace CE_MagazineFed
             return string.Join(", ", dict.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Value}x {MagazineUtility.GetShortAmmoLabel(kv.Key)}"));
         }
 
+        private static bool IsValidForSet(AmmoSetDef set, AmmoDef def)
+        {
+            if (set?.ammoTypes == null || def == null) return false;
+            for (int i = 0; i < set.ammoTypes.Count; i++)
+            {
+                if (set.ammoTypes[i].ammo == def) return true;
+            }
+            return false;
+        }
+
         public override void PostExposeData()
         {
             base.PostExposeData();
             Scribe_Collections.Look(ref loadedRounds, "loadedRounds", LookMode.Def);
-            Scribe_Values.Look(ref hasInsertedMagazine, "hasInsertedMagazine", true);
+            Scribe_Values.Look(ref hasInsertedMagazine, "hasInsertedMagazine", true, true);
             Scribe_Values.Look(ref insertedMagPlanIndex, "insertedMagPlanIndex", 0);
             Scribe_Defs.Look(ref insertedMagAmmoSet, "insertedMagAmmoSet");
             Scribe_Values.Look(ref insertedMagCapacity, "insertedMagCapacity", 0);

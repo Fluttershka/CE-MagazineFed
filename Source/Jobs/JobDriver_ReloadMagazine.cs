@@ -23,14 +23,27 @@ namespace CE_MagazineFed
         private ThingWithComps initPrimary;
         private bool reloadingEquipped;
         private bool reloadingInventory;
+        private bool ejectOnly;
+
+        private bool IsEjectOnly => ejectOnly || (job != null && job.count == 1 && TargetMag == null);
 
         public override bool TryMakePreToilReservations(bool errorOnFailed) => true;
+
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_Values.Look(ref reloadingEquipped, "reloadingEquipped", false);
+            Scribe_Values.Look(ref reloadingInventory, "reloadingInventory", false);
+            Scribe_Values.Look(ref ejectOnly, "ejectOnly", false);
+            Scribe_References.Look(ref initPrimary, "initPrimary");
+        }
 
         public override string GetReport()
         {
             if (Weapon != null)
             {
-                return $"{"CEMF_Mote_SwappingMag".Translate()} ({Weapon.LabelShort})";
+                string key = IsEjectOnly ? "CEMF_Mote_EjectingMag" : "CEMF_Mote_SwappingMag";
+                return $"{key.Translate()} ({Weapon.LabelShort})";
             }
             return base.GetReport();
         }
@@ -40,7 +53,12 @@ namespace CE_MagazineFed
             if (Weapon == null || CompAmmo == null || CompMag == null) return true;
             if (reloadingEquipped && pawn.equipment?.Primary != Weapon) return true;
             if (reloadingInventory && (pawn.inventory == null || !pawn.inventory.innerContainer.Contains(Weapon))) return true;
+            if (!reloadingEquipped && !reloadingInventory) return true;
             if (initPrimary != pawn.equipment?.Primary) return true;
+            if (IsEjectOnly)
+            {
+                return !CompMag.hasInsertedMagazine && CompAmmo.CurMagCount <= 0;
+            }
             if (TargetMag != null && (TargetMag.Destroyed || TargetMag.IsEmpty || !pawn.inventory.innerContainer.Contains(TargetMag)))
             {
                 return !MagazineUtility.HasLoadedMagazineInInventory(pawn, CompAmmo.CurAmmoSet, CompAmmo.MagSize);
@@ -50,9 +68,16 @@ namespace CE_MagazineFed
 
         protected override IEnumerable<Toil> MakeNewToils()
         {
-            reloadingEquipped = pawn.equipment?.Primary == Weapon;
-            reloadingInventory = pawn.inventory != null && pawn.inventory.innerContainer.Contains(Weapon);
-            initPrimary = pawn.equipment?.Primary;
+            if (!reloadingEquipped && !reloadingInventory)
+            {
+                reloadingEquipped = pawn.equipment?.Primary == Weapon;
+                reloadingInventory = pawn.inventory != null && pawn.inventory.innerContainer.Contains(Weapon);
+                initPrimary = pawn.equipment?.Primary;
+            }
+            if (job != null && job.count == 1 && TargetMag == null)
+            {
+                ejectOnly = true;
+            }
 
             this.FailOnDespawnedOrNull(TargetIndex.A);
             this.FailOnDestroyedOrNull(TargetIndex.B);
@@ -64,10 +89,11 @@ namespace CE_MagazineFed
 
             if (CompAmmo != null && CompAmmo.ShouldThrowMote && pawn.Map != null)
             {
-                MoteMaker.ThrowText(pawn.Position.ToVector3Shifted(), pawn.Map, "CEMF_Mote_SwappingMag".Translate());
+                string moteKey = IsEjectOnly ? "CEMF_Mote_EjectingMag" : "CEMF_Mote_SwappingMag";
+                MoteMaker.ThrowText(pawn.Position.ToVector3Shifted(), pawn.Map, moteKey.Translate());
             }
 
-            // Wait toil matching CE weapon reload time
+            // Wait toil matching CE weapon reload time (or 0.35x for magazine ejection)
             Toil waitToil = new Toil { actor = pawn };
             waitToil.initAction = () => waitToil.actor.pather?.StopDead();
             waitToil.defaultCompleteMode = ToilCompleteMode.Delay;
@@ -79,7 +105,9 @@ namespace CE_MagazineFed
             }
             float reloadFactor = Weapon.GetStatValue(CE_StatDefOf.CE_RangedWeapon_ReloadFactor);
             float pawnReloadSpeed = Mathf.Max(0.1f, pawn.GetStatValue(CE_StatDefOf.ReloadSpeed));
-            waitToil.defaultDuration = Mathf.Max(15, Mathf.CeilToInt(GenTicks.SecondsToTicks(reloadTime) * reloadFactor / pawnReloadSpeed));
+            float mult = IsEjectOnly ? 0.35f : 1.0f;
+            int minTicks = IsEjectOnly ? 12 : 15;
+            waitToil.defaultDuration = Mathf.Max(minTicks, Mathf.CeilToInt(GenTicks.SecondsToTicks(reloadTime * mult) * reloadFactor / pawnReloadSpeed));
 
             yield return waitToil.WithProgressBarToilDelay(TargetIndex.A);
 
@@ -89,6 +117,19 @@ namespace CE_MagazineFed
                 var ca = CompAmmo;
                 var cm = CompMag;
                 if (ca == null || cm == null) return;
+
+                if (IsEjectOnly)
+                {
+                    if (cm.hasInsertedMagazine || ca.CurMagCount > 0)
+                    {
+                        cm.EjectInsertedMagazine(pawn);
+                        if (Weapon.def.soundInteract != null && pawn.Map != null)
+                        {
+                            Weapon.def.soundInteract.PlayOneShot(new TargetInfo(pawn.Position, pawn.Map));
+                        }
+                    }
+                    return;
+                }
 
                 Thing_CEMagazine magToInsert = null;
                 if (TargetMag != null && !TargetMag.Destroyed && !TargetMag.IsEmpty && pawn.inventory.innerContainer.Contains(TargetMag))

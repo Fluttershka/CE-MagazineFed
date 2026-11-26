@@ -76,6 +76,7 @@
   <CEMF_Menu_FieldPack>Field-pack magazine and reload (no loaded mag)</CEMF_Menu_FieldPack>
   <CEMF_Menu_NoMagOrAmmo>No loaded magazines or loose ammo</CEMF_Menu_NoMagOrAmmo>
   <CEMF_Mote_SwappingMag>Swapping magazine...</CEMF_Mote_SwappingMag>
+  <CEMF_Mote_EjectingMag>Ejecting magazine...</CEMF_Mote_EjectingMag>
   <CEMF_Mote_FieldPacking>Field-packing magazine...</CEMF_Mote_FieldPacking>
   <CEMF_Mote_PackingMag>Packing magazines...</CEMF_Mote_PackingMag>
   <CEMF_Mote_ThumbInjured>Pinched thumb!</CEMF_Mote_ThumbInjured>
@@ -94,6 +95,10 @@
   <CEMF_UI_PackNowTip>Immediately order this colonist to pack and organize magazines according to their plan.</CEMF_UI_PackNowTip>
   <CEMF_UI_PackNowOrdered>Ordered {0} to pack magazines now.</CEMF_UI_PackNowOrdered>
   <CEMF_UI_PackNowNotNeeded>{0}'s magazines already match the plan or no loose ammo is available.</CEMF_UI_PackNowNotNeeded>
+  <CEMF_UI_PackNowDrafted>{0} is currently drafted; undraft first to pack magazines.</CEMF_UI_PackNowDrafted>
+  <CEMF_UI_PackNowAlready>{0} is already packing magazines.</CEMF_UI_PackNowAlready>
+  <CEMF_UI_PackNowIncapable>{0} is currently incapable of packing magazines.</CEMF_UI_PackNowIncapable>
+  <CEMF_UI_PackNowInventoryFull>{0} does not have enough free carry mass or bulk to pick up more ammo.</CEMF_UI_PackNowInventoryFull>
   <CEMF_UI_TotalMags>Total Magazines (incl. inserted):</CEMF_UI_TotalMags>
   <CEMF_UI_SparePreview>1 in gun + {0} spare in bag | Est. {1} kg / {2} bulk</CEMF_UI_SparePreview>
   <CEMF_UI_MagSlotLabel>Mag #{0}</CEMF_UI_MagSlotLabel>

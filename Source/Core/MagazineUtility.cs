@@ -742,9 +742,9 @@ namespace CE_MagazineFed
                     }
                 }
 
-                // Pack into full magazines (plus a final partial mag if any left)
+                // Pack into full magazines (plus a final partial mag if any left), continuing from any already-packed slots
                 int idx = 0;
-                int magSlot = 0;
+                int magSlot = GetMagazinesInInventory(pawn, set, cap).Count + (compMag != null && compMag.hasInsertedMagazine ? 1 : 0);
                 while (idx < looseRounds.Count)
                 {
                     int take = Math.Min(cap, looseRounds.Count - idx);
@@ -851,6 +851,57 @@ namespace CE_MagazineFed
             return n.Length <= 8 ? n : n.Substring(0, 8);
         }
 
+        private static bool HasToken(string upper, string token)
+        {
+            if (string.IsNullOrEmpty(upper) || string.IsNullOrEmpty(token)) return false;
+            int idx = 0;
+            while ((idx = upper.IndexOf(token, idx, StringComparison.Ordinal)) >= 0)
+            {
+                bool leftBoundary = idx == 0 || !char.IsLetter(upper[idx - 1]);
+                int end = idx + token.Length;
+                bool rightBoundary = end == upper.Length || !char.IsLetter(upper[end]);
+                if (leftBoundary && rightBoundary)
+                {
+                    return true;
+                }
+                idx += token.Length;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Draws a color-coded round sequence strip, merging consecutive identical-color slots into single rectangles
+        /// for high performance on large drums (100-200 rounds) and zero right-edge overflow.
+        /// </summary>
+        public static void DrawMergedColorStrip(Rect rect, List<AmmoDef> rounds, int capacity, Color bgColor)
+        {
+            Widgets.DrawBoxSolid(rect, bgColor);
+            if (rounds == null || rounds.Count == 0 || capacity <= 0 || rect.width <= 0f) return;
+
+            int count = Math.Min(rounds.Count, capacity);
+            float slotW = rect.width / capacity;
+
+            int segStart = 0;
+            Color curCol = GetAmmoColor(rounds[0]);
+
+            for (int i = 1; i <= count; i++)
+            {
+                Color nextCol = i < count ? GetAmmoColor(rounds[i]) : default;
+                if (i == count || nextCol != curCol)
+                {
+                    float x0 = rect.x + segStart * slotW;
+                    float x1 = Mathf.Min(rect.xMax, rect.x + i * slotW);
+                    float w = Mathf.Min(rect.xMax - x0, Mathf.Max(1f, x1 - x0));
+                    if (w > 0f)
+                    {
+                        Widgets.DrawBoxSolid(new Rect(x0, rect.y, w, rect.height), curCol);
+                    }
+                    segStart = i;
+                    curCol = nextCol;
+                }
+            }
+        }
+
         public static Color GetAmmoColor(AmmoDef def)
         {
             if (def == null) return new Color(0.35f, 0.35f, 0.38f);
@@ -859,19 +910,19 @@ namespace CE_MagazineFed
 
             string u = key.ToUpperInvariant();
             Color col;
-            if (u.Contains("FULLMETALJACKET") || u.Contains("FMJ") || u.Contains("BALL"))
+            if (u.Contains("FULLMETALJACKET") || HasToken(u, "FMJ") || HasToken(u, "BALL"))
                 col = new Color(0.84f, 0.67f, 0.27f); // Brass Gold
-            else if (u.Contains("ARMORPIERCING") || u.Contains("AP_I") || u.Contains("API") || u.Contains("INCENDIARYAP"))
+            else if (u.Contains("ARMORPIERCING") || HasToken(u, "AP") || HasToken(u, "API") || u.Contains("AP_I") || u.Contains("INCENDIARYAP"))
                 col = new Color(0.28f, 0.64f, 0.92f); // Steel Blue
             else if (u.Contains("SABOT"))
                 col = new Color(0.68f, 0.42f, 0.95f); // Violet
-            else if (u.Contains("HOLLOWPOINT") || u.Contains("HP") || u.Contains("SOFTPOINT"))
+            else if (u.Contains("HOLLOWPOINT") || HasToken(u, "HP") || HasToken(u, "JHP") || u.Contains("SOFTPOINT") || HasToken(u, "SP"))
                 col = new Color(0.90f, 0.44f, 0.24f); // Copper Orange
             else if (u.Contains("INCENDIARY") || u.Contains("THERMITE") || u.Contains("PROMETHEUM") || u.Contains("DRAGON"))
                 col = new Color(0.95f, 0.26f, 0.20f); // Flame Red
-            else if (u.Contains("HIGHEXPLOSIVE") || u.Contains("HE") || u.Contains("FRAG") || u.Contains("AIRBURST"))
+            else if (u.Contains("HIGHEXPLOSIVE") || HasToken(u, "HE") || u.Contains("FRAG") || u.Contains("AIRBURST"))
                 col = new Color(0.95f, 0.56f, 0.14f); // Explosive Amber
-            else if (u.Contains("EMP") || u.Contains("ION"))
+            else if (HasToken(u, "EMP") || HasToken(u, "ION"))
                 col = new Color(0.18f, 0.85f, 0.92f); // Electric Cyan
             else if (u.Contains("TRACER"))
                 col = new Color(0.36f, 0.90f, 0.38f); // Tracer Green
@@ -894,9 +945,9 @@ namespace CE_MagazineFed
             }
 
             // Slightly differentiate AP-I / AP-HE from plain AP
-            if (u.Contains("API") || u.Contains("AP_I") || u.Contains("INCENDIARY") && u.Contains("ARMOR"))
+            if (HasToken(u, "API") || u.Contains("AP_I") || (u.Contains("INCENDIARY") && u.Contains("ARMOR")))
                 col = new Color(0.85f, 0.28f, 0.52f); // AP-I Magenta-Red
-            else if (u.Contains("APHE") || u.Contains("AP_HE") || (u.Contains("ARMOR") && u.Contains("EXPLOSIVE")))
+            else if (HasToken(u, "APHE") || u.Contains("AP_HE") || (u.Contains("ARMOR") && u.Contains("EXPLOSIVE")))
                 col = new Color(0.76f, 0.36f, 0.78f); // AP-HE Purple-Pink
 
             CategoryColorCache[key] = col;

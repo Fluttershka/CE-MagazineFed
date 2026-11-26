@@ -20,6 +20,14 @@ namespace CE_MagazineFed
             LastFailTick.Clear();
         }
 
+        public static void NotifyNoProgress(Pawn pawn)
+        {
+            if (pawn != null && Find.TickManager != null)
+            {
+                LastFailTick[pawn.thingIDNumber] = Find.TickManager.TicksGame;
+            }
+        }
+
         public override float GetPriority(Pawn pawn)
         {
             var settings = CE_MagazineFedMod.Settings;
@@ -133,14 +141,22 @@ namespace CE_MagazineFed
                         }
                     }
 
-                    if (cm != null && cm.hasInsertedMagazine)
+                    // Check each equipped/carried weapon sharing this config (supports dual/sidearm same-caliber guns)
+                    for (int w = 0; w < weapons.Count; w++)
                     {
-                        cm.SyncFromCompAmmo();
-                        int slot = cm.insertedMagPlanIndex >= 0 && cm.insertedMagPlanIndex < cfg.targetTotalMags ? cm.insertedMagPlanIndex : 0;
-                        var plan = cfg.GetPlan(slot);
-                        if (!plan.MatchesExactly(cm.loadedRounds) && CanProgressMag(pawn, plan, cm.loadedRounds))
+                        var wCa = weapons[w].TryGetComp<CompAmmoUser>();
+                        if (!MagazineUtility.IsMagazineFedWeapon(wCa) || wCa.CurAmmoSet != cfg.ammoSet || wCa.MagSize != cfg.capacity) continue;
+
+                        var wCm = weapons[w].TryGetComp<CompWeaponMagazine>();
+                        if (wCm != null && wCm.hasInsertedMagazine)
                         {
-                            return true;
+                            wCm.SyncFromCompAmmo();
+                            int slot = wCm.insertedMagPlanIndex >= 0 && wCm.insertedMagPlanIndex < cfg.targetTotalMags ? wCm.insertedMagPlanIndex : 0;
+                            var plan = cfg.GetPlan(slot);
+                            if (!plan.MatchesExactly(wCm.loadedRounds) && CanProgressMag(pawn, plan, wCm.loadedRounds))
+                            {
+                                return true;
+                            }
                         }
                     }
                 }
@@ -188,6 +204,7 @@ namespace CE_MagazineFed
                 return true;
             }
 
+            var compInv = pawn.TryGetComp<CompInventory>();
             foreach (var kv in needed)
             {
                 cur.TryGetValue(kv.Key, out int have);
@@ -196,6 +213,10 @@ namespace CE_MagazineFed
                     if (MagazineUtility.CountLooseAmmoInInventory(pawn, kv.Key) > 0) return true;
                     if ((CE_MagazineFedMod.Settings?.fetchAmmoFromStockpile ?? true) && pawn.Map != null)
                     {
+                        if (compInv != null && (!compInv.CanFitInInventory(kv.Key, out int fit) || fit <= 0))
+                        {
+                            continue;
+                        }
                         Thing t = GenClosest.ClosestThingReachable(
                             pawn.Position,
                             pawn.Map,
@@ -203,7 +224,10 @@ namespace CE_MagazineFed
                             PathEndMode.ClosestTouch,
                             TraverseParms.For(pawn, Danger.Some),
                             9999f,
-                            x => !x.IsForbidden(pawn) && !x.IsBurning() && pawn.CanReserve(x, 10, 1));
+                            x => !x.IsForbidden(pawn)
+                                 && !x.IsBurning()
+                                 && !(x is AmmoThing at && at.IsCookingOff)
+                                 && pawn.CanReserve(x, 10, 1));
                         if (t != null) return true;
                     }
                 }
@@ -226,7 +250,10 @@ namespace CE_MagazineFed
                     PathEndMode.ClosestTouch,
                     TraverseParms.For(pawn, Danger.Some),
                     9999f,
-                    x => !x.IsForbidden(pawn) && !x.IsBurning() && pawn.CanReserve(x, 10, 1));
+                    x => !x.IsForbidden(pawn)
+                         && !x.IsBurning()
+                         && !(x is AmmoThing at && at.IsCookingOff)
+                         && pawn.CanReserve(x, 10, 1));
                 if (t != null) return true;
             }
             return false;

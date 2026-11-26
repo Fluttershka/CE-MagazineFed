@@ -28,6 +28,25 @@ namespace CE_MagazineFed
 
         public override bool TryMakePreToilReservations(bool errorOnFailed) => true;
 
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_References.Look(ref workingMag, "workingMag");
+            Scribe_Values.Look(ref nextSlotToFill, "nextSlotToFill", 0);
+            Scribe_Values.Look(ref roundsPackedSoFar, "roundsPackedSoFar", 0);
+        }
+
+        private AmmoPlan ResolveTargetPlan()
+        {
+            if (targetPlan != null) return targetPlan;
+            var ca = CompAmmo;
+            if (ca == null || workingMag == null) return null;
+            var cfg = GameComponent_MagazineManager.Instance?.GetOrCreateConfig(pawn, ca);
+            int slotIdx = workingMag.preferredPlanIndex >= 0 ? workingMag.preferredPlanIndex : 0;
+            targetPlan = cfg?.GetPlan(slotIdx);
+            return targetPlan;
+        }
+
         public override string GetReport()
         {
             if (Weapon != null)
@@ -42,9 +61,10 @@ namespace CE_MagazineFed
             if (CompAmmo?.CurAmmoSet?.ammoTypes == null) return null;
 
             // Try matching plan slot first
-            if (targetPlan != null && nextSlotToFill >= 0 && nextSlotToFill < targetPlan.slots.Count)
+            var plan = ResolveTargetPlan();
+            if (plan != null && nextSlotToFill >= 0 && nextSlotToFill < plan.slots.Count)
             {
-                AmmoDef planned = targetPlan.slots[nextSlotToFill];
+                AmmoDef planned = plan.slots[nextSlotToFill];
                 if (planned != null && MagazineUtility.CountLooseAmmoInInventory(pawn, planned) > 0)
                 {
                     return planned;
@@ -74,6 +94,17 @@ namespace CE_MagazineFed
             {
                 this.FailOnMentalState(TargetIndex.A);
             }
+
+            // If interrupted mid-pack while weapon has no magazine seated, re-seat workingMag if it has rounds (or seat empty back)
+            AddFinishAction(cond =>
+            {
+                var cm = CompMag;
+                if (cm != null && !cm.hasInsertedMagazine && workingMag != null && !workingMag.Destroyed
+                    && pawn?.inventory?.innerContainer != null && pawn.inventory.innerContainer.Contains(workingMag))
+                {
+                    cm.InsertMagazine(workingMag, pawn);
+                }
+            });
 
             // Step 1: Prepare an empty/partial magazine to hand-pack
             Toil prepToil = new Toil();
