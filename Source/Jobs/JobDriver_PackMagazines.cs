@@ -452,6 +452,7 @@ namespace CE_MagazineFed
 
         private void TryReorganizeSingleLoadWeapons()
         {
+            if (pawn == null || pawn.Drafted) return;
             var mgr = GameComponent_MagazineManager.Instance;
             if (mgr == null) return;
 
@@ -462,6 +463,7 @@ namespace CE_MagazineFed
                 var cm = weapons[i].TryGetComp<CompWeaponMagazine>();
                 if (ca == null || cm == null || !MagazineUtility.IsSingleLoadMultiCapacityWeapon(ca)) continue;
 
+                cm.ClearTempSingleLoadAmmo();
                 cm.SyncFromCompAmmo();
                 var cfg = mgr.GetOrCreateConfig(pawn, ca);
                 if (cfg == null) continue;
@@ -470,15 +472,12 @@ namespace CE_MagazineFed
                 plan.Normalize();
                 if (plan.MatchesExactly(cm.loadedRounds)) continue;
 
-                // If mismatched (not prefix and not suffix), only unload if pawn has slot 0 ammo available
-                if (cm.loadedRounds.Count > 0 && !plan.IsPrefixMatch(cm.loadedRounds) && !plan.IsSuffixMatch(cm.loadedRounds))
+                if (!MagazineUtility.CanRestoreSingleLoadWeapon(pawn, ca, cm, plan, includeStockpile: false)) continue;
+
+                if (MagazineUtility.AnalyzeSingleLoadRestore(cm.loadedRounds, plan, out int frontMismatch, out _, out _) && frontMismatch > 0)
                 {
-                    AmmoDef first = plan.slots[0];
-                    if (first != null && (MagazineUtility.CountLooseAmmoInInventory(pawn, first) > 0 || cm.loadedRounds.Contains(first)))
-                    {
-                        ca.TryUnload(forceUnload: true);
-                        madeAnyProgress = true;
-                    }
+                    MagazineUtility.EjectFrontRoundsForSingleLoad(pawn, ca, cm, frontMismatch);
+                    madeAnyProgress = true;
                 }
 
                 // Queue CE's single-round reload job if weapon now has room and pawn has compatible loose ammo
@@ -491,6 +490,21 @@ namespace CE_MagazineFed
                         madeAnyProgress = true;
                     }
                     break;
+                }
+            }
+        }
+
+        private void ClearManualMagPreferencesOnUndraftedPack()
+        {
+            if (pawn == null || pawn.Drafted) return;
+            var weapons = MagazineUtility.GetManagedWeapons(pawn);
+            for (int i = 0; i < weapons.Count; i++)
+            {
+                var ca = weapons[i].TryGetComp<CompAmmoUser>();
+                var cm = weapons[i].TryGetComp<CompWeaponMagazine>();
+                if (cm != null && MagazineUtility.IsMagazineFedWeapon(ca))
+                {
+                    cm.ClearManualMagPreference();
                 }
             }
         }
@@ -509,7 +523,7 @@ namespace CE_MagazineFed
 
                 if (!cm.hasInsertedMagazine || cm.loadedRounds.Count == 0)
                 {
-                    var best = MagazineUtility.FindBestLoadedMagazine(pawn, ca.CurAmmoSet, ca.MagSize, null);
+                    var best = MagazineUtility.FindBestLoadedMagazine(pawn, ca.CurAmmoSet, ca.MagSize, preferredComposition: null, minLoadedCountExclusive: 0);
                     if (best != null)
                     {
                         cm.InsertMagazine(best, pawn);
@@ -837,6 +851,7 @@ namespace CE_MagazineFed
             Toil finishToil = new Toil();
             finishToil.initAction = () =>
             {
+                ClearManualMagPreferencesOnUndraftedPack();
                 ReinsertBestMagazinesIntoWeapons();
                 TryReorganizeSingleLoadWeapons();
                 pawn.TryGetComp<CompInventory>()?.UpdateInventory();

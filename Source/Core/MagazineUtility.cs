@@ -860,31 +860,367 @@ namespace CE_MagazineFed
             return mags;
         }
 
-        public static Thing_CEMagazine FindBestLoadedMagazine(Pawn pawn, AmmoSetDef ammoSet, int capacity, AmmoDef preferredAmmo = null)
+        public static AmmoDef GetPrimaryDominantAmmo(List<AmmoDef> rounds)
         {
-            var loaded = GetLoadedMagazinesInInventory(pawn, ammoSet, capacity);
-            if (loaded.Count == 0) return null;
-
-            if (preferredAmmo != null)
+            if (rounds == null || rounds.Count == 0) return null;
+            var counts = new Dictionary<AmmoDef, int>();
+            AmmoDef best = null;
+            int bestCount = 0;
+            for (int i = 0; i < rounds.Count; i++)
             {
-                // Prefer a mag whose top round or majority matches preferredAmmo, weighted by fullness
-                Thing_CEMagazine best = null;
-                int bestScore = int.MinValue;
-                for (int i = 0; i < loaded.Count; i++)
+                AmmoDef ad = rounds[i];
+                if (ad == null) continue;
+                int c = counts.TryGetValue(ad, out int cur) ? cur + 1 : 1;
+                counts[ad] = c;
+                if (c > bestCount)
                 {
-                    var m = loaded[i];
-                    int score = m.LoadedCount * 10;
-                    if (m.NextRound == preferredAmmo) score += 200;
-                    if (m.IsFull) score += 50;
-                    if (score > bestScore)
+                    bestCount = c;
+                    best = ad;
+                }
+            }
+            return best;
+        }
+
+        public static HashSet<AmmoDef> GetDominantAmmoSet(Dictionary<AmmoDef, int> composition)
+        {
+            var result = new HashSet<AmmoDef>();
+            if (composition == null || composition.Count == 0) return result;
+
+            int maxCount = 0;
+            foreach (var kv in composition)
+            {
+                if (kv.Key != null && kv.Value > maxCount)
+                {
+                    maxCount = kv.Value;
+                }
+            }
+            if (maxCount <= 0) return result;
+
+            foreach (var kv in composition)
+            {
+                if (kv.Key != null && kv.Value == maxCount)
+                {
+                    result.Add(kv.Key);
+                }
+            }
+            return result;
+        }
+
+        public static Dictionary<AmmoDef, int> ResolveMagazineComposition(Pawn pawn, Thing_CEMagazine mag)
+        {
+            if (mag == null) return new Dictionary<AmmoDef, int>();
+
+            if (pawn != null && mag.preferredPlanIndex >= 0 && mag.ammoSet != null)
+            {
+                var cfg = GameComponent_MagazineManager.Instance?.GetConfig(pawn, mag.ammoSet, mag.capacity, isSingleLoad: false);
+                if (cfg != null && mag.preferredPlanIndex < cfg.targetTotalMags)
+                {
+                    var plan = cfg.GetPlan(mag.preferredPlanIndex);
+                    if (plan != null && mag.rounds != null && mag.rounds.Count > 0
+                        && (plan.MatchesExactly(mag.rounds) || plan.IsPrefixMatch(mag.rounds) || plan.IsSuffixMatch(mag.rounds)))
                     {
-                        bestScore = score;
-                        best = m;
+                        return plan.GetCountsByDef();
                     }
                 }
-                return best;
             }
-            return loaded[0];
+            return mag.GetAmmoCounts();
+        }
+
+        /// <summary>
+        /// Returns 2 for exact recipe/ratio match, 1 for dominant-ammo match, 0 for no match.
+        /// </summary>
+        public static int GetMagazineMatchTier(Dictionary<AmmoDef, int> preferredComp, Dictionary<AmmoDef, int> candidateComp)
+        {
+            if (preferredComp == null || candidateComp == null || preferredComp.Count == 0 || candidateComp.Count == 0)
+            {
+                return 0;
+            }
+
+            int prefDistinct = 0;
+            int prefTotal = 0;
+            foreach (var kv in preferredComp)
+            {
+                if (kv.Key != null && kv.Value > 0)
+                {
+                    prefDistinct++;
+                    prefTotal += kv.Value;
+                }
+            }
+
+            int candDistinct = 0;
+            int candTotal = 0;
+            foreach (var kv in candidateComp)
+            {
+                if (kv.Key != null && kv.Value > 0)
+                {
+                    candDistinct++;
+                    candTotal += kv.Value;
+                }
+            }
+
+            if (prefTotal <= 0 || candTotal <= 0) return 0;
+
+            if (prefDistinct == candDistinct)
+            {
+                bool exactCounts = true;
+                bool closeRatio = true;
+                foreach (var kv in preferredComp)
+                {
+                    if (kv.Key == null || kv.Value <= 0) continue;
+                    if (!candidateComp.TryGetValue(kv.Key, out int candCount) || candCount <= 0)
+                    {
+                        exactCounts = false;
+                        closeRatio = false;
+                        break;
+                    }
+                    if (candCount != kv.Value) exactCounts = false;
+                    float rPref = (float)kv.Value / prefTotal;
+                    float rCand = (float)candCount / candTotal;
+                    if (Math.Abs(rPref - rCand) > 0.12f)
+                    {
+                        closeRatio = false;
+                    }
+                }
+
+                if (exactCounts || closeRatio)
+                {
+                    return 2;
+                }
+            }
+
+            var prefDom = GetDominantAmmoSet(preferredComp);
+            var candDom = GetDominantAmmoSet(candidateComp);
+            foreach (var ad in prefDom)
+            {
+                if (candDom.Contains(ad))
+                {
+                    return 1;
+                }
+            }
+            return 0;
+        }
+
+        public static Thing_CEMagazine FindBestLoadedMagazine(
+            Pawn pawn,
+            AmmoSetDef ammoSet,
+            int capacity,
+            Dictionary<AmmoDef, int> preferredComposition = null,
+            int minLoadedCountExclusive = 0)
+        {
+            var loaded = GetLoadedMagazinesInInventory(pawn, ammoSet, capacity);
+            if (minLoadedCountExclusive > 0)
+            {
+                loaded.RemoveAll(m => m.LoadedCount <= minLoadedCountExclusive);
+            }
+            if (loaded.Count == 0) return null;
+
+            if (preferredComposition == null || preferredComposition.Count == 0)
+            {
+                return loaded[0];
+            }
+
+            int maxLoaded = loaded[0].LoadedCount;
+            int prefThreshold = Math.Max(1, Mathf.CeilToInt(maxLoaded * 0.5f));
+
+            Thing_CEMagazine best = null;
+            int bestTier = -1;
+            int bestLoaded = -1;
+            int bestSlot = int.MaxValue;
+
+            for (int i = 0; i < loaded.Count; i++)
+            {
+                var m = loaded[i];
+                int tier = m.LoadedCount >= prefThreshold
+                    ? GetMagazineMatchTier(preferredComposition, ResolveMagazineComposition(pawn, m))
+                    : 0;
+                int slot = m.preferredPlanIndex >= 0 ? m.preferredPlanIndex : 999;
+
+                bool isBetter = tier > bestTier
+                    || (tier == bestTier && m.LoadedCount > bestLoaded)
+                    || (tier == bestTier && m.LoadedCount == bestLoaded && slot < bestSlot);
+                if (isBetter)
+                {
+                    best = m;
+                    bestTier = tier;
+                    bestLoaded = m.LoadedCount;
+                    bestSlot = slot;
+                }
+            }
+            return best;
+        }
+
+        public static Thing_CEMagazine FindBestLoadedMagazine(Pawn pawn, CompAmmoUser compAmmo, int minLoadedCountExclusive = 0)
+        {
+            if (pawn == null || compAmmo == null || compAmmo.CurAmmoSet == null) return null;
+            var cm = compAmmo.parent?.TryGetComp<CompWeaponMagazine>();
+            var pref = (cm != null && cm.hasManualMagPref) ? cm.GetManualPrefComposition() : null;
+            return FindBestLoadedMagazine(pawn, compAmmo.CurAmmoSet, compAmmo.MagSize, pref, minLoadedCountExclusive);
+        }
+
+        /// <summary>
+        /// Analyzes how a single-load weapon's loadedRounds differ from `plan`.
+        /// Returns true if restoration work is needed and `nextNeededAmmo` is known.
+        /// </summary>
+        public static bool AnalyzeSingleLoadRestore(
+            List<AmmoDef> loadedRounds,
+            AmmoPlan plan,
+            out int frontMismatchToEject,
+            out int matchingTailLen,
+            out AmmoDef nextNeededAmmo)
+        {
+            frontMismatchToEject = 0;
+            matchingTailLen = 0;
+            nextNeededAmmo = null;
+            if (plan == null) return false;
+
+            plan.Normalize();
+            int count = loadedRounds?.Count ?? 0;
+            if (plan.MatchesExactly(loadedRounds)) return false;
+
+            if (count == 0 || plan.IsPrefixMatch(loadedRounds))
+            {
+                frontMismatchToEject = 0;
+                matchingTailLen = 0;
+                nextNeededAmmo = count < plan.slots.Count ? plan.slots[count] : null;
+                return nextNeededAmmo != null;
+            }
+
+            if (plan.IsSuffixMatch(loadedRounds))
+            {
+                frontMismatchToEject = 0;
+                matchingTailLen = count;
+                int idx = Math.Max(0, plan.capacity - count - 1);
+                nextNeededAmmo = plan.slots[idx];
+                return nextNeededAmmo != null;
+            }
+
+            int rIdx = count - 1;
+            int pIdx = plan.capacity - 1;
+            while (rIdx >= 0 && pIdx >= 0 && loadedRounds[rIdx] == plan.slots[pIdx])
+            {
+                matchingTailLen++;
+                rIdx--;
+                pIdx--;
+            }
+            frontMismatchToEject = count - matchingTailLen;
+            int nextIdx = matchingTailLen > 0 ? Math.Max(0, plan.capacity - matchingTailLen - 1) : 0;
+            nextNeededAmmo = plan.slots[nextIdx];
+            return nextNeededAmmo != null;
+        }
+
+        public static bool HasReachableAmmoOnMap(Pawn pawn, AmmoDef ammoDef, int minCountRequired)
+        {
+            if (pawn?.Map == null || ammoDef == null || minCountRequired <= 0) return false;
+            var compInv = pawn.TryGetComp<CompInventory>();
+            if (compInv != null && (!compInv.CanFitInInventory(ammoDef, out int fit) || fit <= 0))
+            {
+                return false;
+            }
+
+            var list = pawn.Map.listerThings?.ThingsOfDef(ammoDef);
+            if (list == null || list.Count == 0) return false;
+
+            int sum = 0;
+            for (int i = 0; i < list.Count; i++)
+            {
+                Thing t = list[i];
+                if (t == null || t.Destroyed || !t.Spawned || t.stackCount <= 0) continue;
+                if (t.IsForbidden(pawn) || t.IsBurning()) continue;
+                if (t is AmmoThing at && at.IsCookingOff) continue;
+                if (!pawn.CanReserveAndReach(t, PathEndMode.ClosestTouch, Danger.Some, 10, 1)) continue;
+
+                sum += t.stackCount;
+                if (sum >= minCountRequired)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Checks whether a single-load weapon can safely progress/restore toward `plan`
+        /// without stripping rounds when replacement ammo is unavailable.
+        /// </summary>
+        public static bool CanRestoreSingleLoadWeapon(Pawn pawn, CompAmmoUser ca, CompWeaponMagazine cm, AmmoPlan plan, bool includeStockpile)
+        {
+            if (pawn == null || ca == null || cm == null || plan == null) return false;
+            cm.SyncFromCompAmmo();
+
+            if (!AnalyzeSingleLoadRestore(cm.loadedRounds, plan, out int frontMismatch, out int matchingTailLen, out AmmoDef nextNeeded))
+            {
+                return false;
+            }
+
+            if (frontMismatch == 0)
+            {
+                if (CountLooseAmmoInInventory(pawn, nextNeeded) > 0) return true;
+                return includeStockpile && HasReachableAmmoOnMap(pawn, nextNeeded, 1);
+            }
+
+            int frontNeedEnd = plan.capacity - matchingTailLen;
+            if (frontNeedEnd <= 0) return false;
+
+            var frontNeed = new Dictionary<AmmoDef, int>();
+            for (int i = 0; i < frontNeedEnd; i++)
+            {
+                AmmoDef ad = plan.slots[i];
+                if (ad == null) continue;
+                frontNeed[ad] = frontNeed.TryGetValue(ad, out int cur) ? cur + 1 : 1;
+            }
+            if (frontNeed.Count == 0) return false;
+
+            var availNow = new Dictionary<AmmoDef, int>();
+            foreach (var ad in frontNeed.Keys)
+            {
+                availNow[ad] = CountLooseAmmoInInventory(pawn, ad);
+            }
+            for (int i = 0; i < frontMismatch && i < cm.loadedRounds.Count; i++)
+            {
+                AmmoDef ejected = cm.loadedRounds[i];
+                if (ejected != null && availNow.ContainsKey(ejected))
+                {
+                    availNow[ejected] += 1;
+                }
+            }
+
+            foreach (var kv in frontNeed)
+            {
+                int deficit = kv.Value - availNow[kv.Key];
+                if (deficit <= 0) continue;
+                if (!includeStockpile) return false;
+                if (!HasReachableAmmoOnMap(pawn, kv.Key, deficit)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Ejects only the front `count` rounds from a single-load weapon back to pawn's inventory (or ground),
+        /// preserving the matching rear rounds in the tube/cylinder.
+        /// </summary>
+        public static void EjectFrontRoundsForSingleLoad(Pawn pawn, CompAmmoUser ca, CompWeaponMagazine cm, int count)
+        {
+            if (pawn == null || ca == null || cm == null || count <= 0) return;
+            cm.SyncFromCompAmmo();
+
+            int toRemove = Math.Min(count, cm.loadedRounds.Count);
+            if (toRemove <= 0) return;
+
+            var ejectedCounts = new Dictionary<AmmoDef, int>();
+            for (int i = 0; i < toRemove; i++)
+            {
+                AmmoDef ad = cm.loadedRounds[i];
+                if (ad == null) continue;
+                ejectedCounts[ad] = ejectedCounts.TryGetValue(ad, out int cur) ? cur + 1 : 1;
+            }
+            cm.loadedRounds.RemoveRange(0, toRemove);
+            cm.PushToCompAmmo();
+
+            foreach (var kv in ejectedCounts)
+            {
+                AddOrDropLooseAmmo(pawn, kv.Key, kv.Value);
+            }
+            pawn.TryGetComp<CompInventory>()?.UpdateInventory();
         }
 
         public static bool HasLoadedMagazineInInventory(Pawn pawn, AmmoSetDef ammoSet, int capacity)

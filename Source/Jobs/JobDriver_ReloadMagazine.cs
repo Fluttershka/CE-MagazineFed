@@ -24,6 +24,7 @@ namespace CE_MagazineFed
         private bool reloadingEquipped;
         private bool reloadingInventory;
         private bool ejectOnly;
+        private bool isManualChoice;
 
         private bool IsEjectOnly => ejectOnly || (job != null && job.count == 1 && TargetMag == null);
 
@@ -35,6 +36,7 @@ namespace CE_MagazineFed
             Scribe_Values.Look(ref reloadingEquipped, "reloadingEquipped", false);
             Scribe_Values.Look(ref reloadingInventory, "reloadingInventory", false);
             Scribe_Values.Look(ref ejectOnly, "ejectOnly", false);
+            Scribe_Values.Look(ref isManualChoice, "isManualChoice", false);
             Scribe_References.Look(ref initPrimary, "initPrimary");
         }
 
@@ -77,6 +79,11 @@ namespace CE_MagazineFed
             if (job != null && job.count == 1 && TargetMag == null)
             {
                 ejectOnly = true;
+            }
+            if (CompMag != null && CompMag.pendingManualMagChoice)
+            {
+                isManualChoice = true;
+                CompMag.pendingManualMagChoice = false;
             }
 
             this.FailOnDespawnedOrNull(TargetIndex.A);
@@ -144,11 +151,15 @@ namespace CE_MagazineFed
                 }
                 else
                 {
-                    magToInsert = MagazineUtility.FindBestLoadedMagazine(pawn, ca.CurAmmoSet, ca.MagSize, ca.SelectedAmmo);
+                    magToInsert = MagazineUtility.FindBestLoadedMagazine(pawn, ca, minLoadedCountExclusive: 0);
                 }
 
                 if (magToInsert == null) return;
 
+                if (isManualChoice)
+                {
+                    cm.SetManualMagPreference(pawn, magToInsert);
+                }
                 cm.InsertMagazine(magToInsert, pawn);
                 cm.pendingSelectedMag = null;
 

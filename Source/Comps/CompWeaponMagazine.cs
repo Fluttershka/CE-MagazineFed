@@ -41,10 +41,30 @@ namespace CE_MagazineFed
         public int insertedMagCapacity;
 
         /// <summary>
+        /// Persistent manual preference set when player right-click picks a specific magazine.
+        /// Guides subsequent auto-reloads toward the same recipe or dominant ammo type until cleared.
+        /// </summary>
+        public bool hasManualMagPref = false;
+        public List<AmmoDef> manualPrefAmmoDefs = new List<AmmoDef>();
+        public List<int> manualPrefAmmoCounts = new List<int>();
+
+        /// <summary>
+        /// Persistent temporary ammo override for SingleLoad multi-capacity weapons via Reload right-click menu.
+        /// Cleared manually ("Restore preset plan") or automatically on out-of-combat PackMagazines.
+        /// </summary>
+        public AmmoDef tempSingleLoadAmmo;
+
+        /// <summary>
         /// Transient: specific magazine chosen by player from right-click menu to swap in next.
         /// </summary>
         [Unsaved]
         public Thing_CEMagazine pendingSelectedMag;
+
+        /// <summary>
+        /// Transient: true when `pendingSelectedMag` was manually chosen from the right-click menu.
+        /// </summary>
+        [Unsaved]
+        public bool pendingManualMagChoice;
 
         /// <summary>
         /// Transient: whether the next reload trigger should perform a timed magazine ejection only.
@@ -240,13 +260,98 @@ namespace CE_MagazineFed
             }
 
             PushToCompAmmo();
+            AmmoDef dom = MagazineUtility.GetPrimaryDominantAmmo(loadedRounds);
+            if (dom != null)
+            {
+                ca.SelectedAmmo = dom;
+            }
             holder?.TryGetComp<CompInventory>()?.UpdateInventory();
             return true;
         }
 
+        public void SetManualMagPreference(Pawn holder, Thing_CEMagazine mag)
+        {
+            if (mag == null)
+            {
+                ClearManualMagPreference();
+                return;
+            }
+
+            if (manualPrefAmmoDefs == null) manualPrefAmmoDefs = new List<AmmoDef>();
+            if (manualPrefAmmoCounts == null) manualPrefAmmoCounts = new List<int>();
+            manualPrefAmmoDefs.Clear();
+            manualPrefAmmoCounts.Clear();
+
+            var comp = MagazineUtility.ResolveMagazineComposition(holder, mag);
+            foreach (var kv in comp)
+            {
+                if (kv.Key != null && kv.Value > 0)
+                {
+                    manualPrefAmmoDefs.Add(kv.Key);
+                    manualPrefAmmoCounts.Add(kv.Value);
+                }
+            }
+
+            hasManualMagPref = manualPrefAmmoDefs.Count > 0;
+            var ca = CompAmmo;
+            if (ca != null)
+            {
+                AmmoDef dom = MagazineUtility.GetPrimaryDominantAmmo(mag.rounds) ?? mag.NextRound;
+                if (dom != null)
+                {
+                    ca.SelectedAmmo = dom;
+                }
+            }
+        }
+
+        public void ClearManualMagPreference()
+        {
+            hasManualMagPref = false;
+            manualPrefAmmoDefs?.Clear();
+            manualPrefAmmoCounts?.Clear();
+        }
+
+        public Dictionary<AmmoDef, int> GetManualPrefComposition()
+        {
+            if (!hasManualMagPref || manualPrefAmmoDefs == null || manualPrefAmmoCounts == null || manualPrefAmmoDefs.Count == 0)
+            {
+                return null;
+            }
+
+            var dict = new Dictionary<AmmoDef, int>();
+            int n = Math.Min(manualPrefAmmoDefs.Count, manualPrefAmmoCounts.Count);
+            for (int i = 0; i < n; i++)
+            {
+                AmmoDef def = manualPrefAmmoDefs[i];
+                int cnt = manualPrefAmmoCounts[i];
+                if (def != null && cnt > 0)
+                {
+                    if (dict.TryGetValue(def, out int existing)) dict[def] = existing + cnt;
+                    else dict[def] = cnt;
+                }
+            }
+            return dict.Count > 0 ? dict : null;
+        }
+
+        public string GetManualPrefCompactSummary()
+        {
+            var comp = GetManualPrefComposition();
+            if (comp == null || comp.Count == 0) return "";
+            if (comp.Count == 1)
+            {
+                return MagazineUtility.GetShortAmmoLabel(comp.First().Key);
+            }
+            return string.Join("+", comp.OrderByDescending(kv => kv.Value).Take(3).Select(kv => $"{kv.Value}{MagazineUtility.GetShortAmmoLabel(kv.Key)}"));
+        }
+
+        public void ClearTempSingleLoadAmmo()
+        {
+            tempSingleLoadAmmo = null;
+        }
+
         /// <summary>
         /// Determines the next AmmoDef to load into a single-load multi-capacity weapon (e.g. pump shotgun)
-        /// according to the pawn's AmmoPlan, and whether it should be inserted at index 0 (front top-up) or appended.
+        /// according to the pawn's AmmoPlan (or active right-click tactical override), and whether it should be inserted at index 0.
         /// </summary>
         public bool TryGetNextSingleLoadPlannedAmmo(Pawn pawn, out AmmoDef desiredAmmo, out bool insertAtFront)
         {
@@ -260,6 +365,20 @@ namespace CE_MagazineFed
             SyncFromCompAmmo();
 
             if (loadedRounds.Count >= ca.MagSize) return false;
+
+            if (tempSingleLoadAmmo != null)
+            {
+                if (!IsValidForSet(ca.CurAmmoSet, tempSingleLoadAmmo))
+                {
+                    tempSingleLoadAmmo = null;
+                }
+                else if (MagazineUtility.CountLooseAmmoInInventory(pawn, tempSingleLoadAmmo) > 0)
+                {
+                    desiredAmmo = tempSingleLoadAmmo;
+                    insertAtFront = false;
+                    return true;
+                }
+            }
 
             var mgr = GameComponent_MagazineManager.Instance;
             var config = mgr?.GetOrCreateConfig(pawn, ca);
@@ -326,11 +445,35 @@ namespace CE_MagazineFed
             Scribe_Values.Look(ref insertedMagPlanIndex, "insertedMagPlanIndex", 0);
             Scribe_Defs.Look(ref insertedMagAmmoSet, "insertedMagAmmoSet");
             Scribe_Values.Look(ref insertedMagCapacity, "insertedMagCapacity", 0);
+            Scribe_Values.Look(ref hasManualMagPref, "hasManualMagPref", false);
+            Scribe_Collections.Look(ref manualPrefAmmoDefs, "manualPrefAmmoDefs", LookMode.Def);
+            Scribe_Collections.Look(ref manualPrefAmmoCounts, "manualPrefAmmoCounts", LookMode.Value);
+            Scribe_Defs.Look(ref tempSingleLoadAmmo, "tempSingleLoadAmmo");
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (loadedRounds == null) loadedRounds = new List<AmmoDef>();
                 loadedRounds.RemoveAll(r => r == null);
+
+                if (manualPrefAmmoDefs == null) manualPrefAmmoDefs = new List<AmmoDef>();
+                if (manualPrefAmmoCounts == null) manualPrefAmmoCounts = new List<int>();
+                int pairCount = Math.Min(manualPrefAmmoDefs.Count, manualPrefAmmoCounts.Count);
+                var cleanDefs = new List<AmmoDef>(pairCount);
+                var cleanCounts = new List<int>(pairCount);
+                for (int i = 0; i < pairCount; i++)
+                {
+                    if (manualPrefAmmoDefs[i] != null && manualPrefAmmoCounts[i] > 0)
+                    {
+                        cleanDefs.Add(manualPrefAmmoDefs[i]);
+                        cleanCounts.Add(manualPrefAmmoCounts[i]);
+                    }
+                }
+                manualPrefAmmoDefs = cleanDefs;
+                manualPrefAmmoCounts = cleanCounts;
+                if (manualPrefAmmoDefs.Count == 0)
+                {
+                    hasManualMagPref = false;
+                }
             }
         }
     }

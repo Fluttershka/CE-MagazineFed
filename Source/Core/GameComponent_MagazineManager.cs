@@ -483,7 +483,7 @@ namespace CE_MagazineFed
                 else
                 {
                     // Single-load multi-capacity weapon (e.g. pump shotgun):
-                    // Ensure pawn carries enough planned ammo in inventory to top up the tube if needed
+                    // Ensure pawn carries enough planned ammo in inventory or can restore after Port Load / tactical override
                     if (compMag != null)
                     {
                         compMag.SyncFromCompAmmo();
@@ -491,7 +491,7 @@ namespace CE_MagazineFed
                         if (!plan.MatchesExactly(compMag.loadedRounds))
                         {
                             AccumulateMissingAmmo(plan, compMag.loadedRounds, missingAmmoNeeded);
-                            if (missingAmmoNeeded.Count > 0)
+                            if (MagazineUtility.CanRestoreSingleLoadWeapon(pawn, compAmmo, compMag, plan, includeStockpile: true))
                             {
                                 needsWork = true;
                             }
@@ -666,8 +666,8 @@ namespace CE_MagazineFed
                 {
                     if (ca.CurMagCount < ca.MagSize)
                     {
-                        var bestMag = MagazineUtility.FindBestLoadedMagazine(mech, ca.CurAmmoSet, ca.MagSize, ca.SelectedAmmo);
-                        if (bestMag != null && bestMag.LoadedCount > ca.CurMagCount)
+                        var bestMag = MagazineUtility.FindBestLoadedMagazine(mech, ca, minLoadedCountExclusive: ca.CurMagCount);
+                        if (bestMag != null)
                         {
                             Job swapJob = JobMaker.MakeJob(CEMF_DefOf.CEMF_ReloadMagazine, mech, weapon, bestMag);
                             swapJob.playerForced = false;

@@ -332,10 +332,19 @@ namespace CE_MagazineFed
                 }
                 else
                 {
-                    // Single-load multi-capacity: only actionable via PackMagazines if we need to fetch missing planned ammo from stockpile
-                    if (missingFromInventory.Count > 0 && (CE_MagazineFedMod.Settings?.fetchAmmoFromStockpile ?? true))
+                    // Single-load multi-capacity: actionable if tube/cylinder differs from preset plan
+                    // and pawn has (or can fetch) enough rounds to restore or top up without stripping to empty
+                    var cm = weapons[i].TryGetComp<CompWeaponMagazine>();
+                    if (cm != null)
                     {
-                        if (AnyAmmoReachableOnMap(pawn, missingFromInventory)) return true;
+                        cm.SyncFromCompAmmo();
+                        var plan = cfg.GetPlan(0);
+                        bool allowStockpile = CE_MagazineFedMod.Settings?.fetchAmmoFromStockpile ?? true;
+                        if (!plan.MatchesExactly(cm.loadedRounds)
+                            && MagazineUtility.CanRestoreSingleLoadWeapon(pawn, ca, cm, plan, includeStockpile: allowStockpile))
+                        {
+                            return true;
+                        }
                     }
                 }
             }

@@ -89,6 +89,11 @@
   <CEMF_Menu_EjectMag>Eject Current Magazine</CEMF_Menu_EjectMag>
   <CEMF_Menu_FieldPack>Field-pack magazine and reload (no loaded mag)</CEMF_Menu_FieldPack>
   <CEMF_Menu_NoMagOrAmmo>No loaded magazines or loose ammo</CEMF_Menu_NoMagOrAmmo>
+  <CEMF_Menu_SwitchSingleLoadAmmo>Switch to {0} (×{1})</CEMF_Menu_SwitchSingleLoadAmmo>
+  <CEMF_Menu_SwitchSingleLoadAmmoActive>Switch to {0} (×{1}) [Active Override]</CEMF_Menu_SwitchSingleLoadAmmoActive>
+  <CEMF_Menu_RestoreSingleLoadPlan>Restore preset plan ({0})</CEMF_Menu_RestoreSingleLoadPlan>
+  <CEMF_Menu_UnloadWeapon>Unload all rounds</CEMF_Menu_UnloadWeapon>
+  <CEMF_Menu_NoLooseAmmo>No compatible loose ammo in inventory</CEMF_Menu_NoLooseAmmo>
   <CEMF_Mote_SwappingMag>Swapping magazine...</CEMF_Mote_SwappingMag>
   <CEMF_Mote_EjectingMag>Ejecting magazine...</CEMF_Mote_EjectingMag>
   <CEMF_Mote_FieldPacking>Field-packing magazine...</CEMF_Mote_FieldPacking>
@@ -97,7 +102,9 @@
   <CEMF_Msg_ThumbInjured>{0} injured their right thumb while loading a magazine.</CEMF_Msg_ThumbInjured>
   <CEMF_Gizmo_NextRound>Next round: {0}</CEMF_Gizmo_NextRound>
   <CEMF_Gizmo_SpareMags>Spare mags: {0} loaded ({1} rounds total)</CEMF_Gizmo_SpareMags>
+  <CEMF_Gizmo_ManualMagPref>Manual ammo continuation: {0}</CEMF_Gizmo_ManualMagPref>
   <CEMF_Gizmo_SingleLoadPlan>Single-load plan active (Next: {0})</CEMF_Gizmo_SingleLoadPlan>
+  <CEMF_Gizmo_SingleLoadTemp>Temporary ammo override: {0} (restores preset plan out of combat)</CEMF_Gizmo_SingleLoadTemp>
 
   <!-- Window_MagazineManager -->
   <CEMF_UI_Title>CE Magazine &amp; Mixed-Ammo Manager</CEMF_UI_Title>

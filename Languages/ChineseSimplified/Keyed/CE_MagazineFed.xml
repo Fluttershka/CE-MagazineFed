@@ -89,6 +89,11 @@
   <CEMF_Menu_EjectMag>退下当前弹匣</CEMF_Menu_EjectMag>
   <CEMF_Menu_FieldPack>现场压弹并装填（无可用满弹匣）</CEMF_Menu_FieldPack>
   <CEMF_Menu_NoMagOrAmmo>无可用弹匣或散弹</CEMF_Menu_NoMagOrAmmo>
+  <CEMF_Menu_SwitchSingleLoadAmmo>切换装填弹种：{0} (×{1})</CEMF_Menu_SwitchSingleLoadAmmo>
+  <CEMF_Menu_SwitchSingleLoadAmmoActive>切换装填弹种：{0} (×{1}) [当前临时]</CEMF_Menu_SwitchSingleLoadAmmoActive>
+  <CEMF_Menu_RestoreSingleLoadPlan>恢复预设混装方案 ({0})</CEMF_Menu_RestoreSingleLoadPlan>
+  <CEMF_Menu_UnloadWeapon>卸空当前弹仓</CEMF_Menu_UnloadWeapon>
+  <CEMF_Menu_NoLooseAmmo>背包中没有可用的兼容弹药</CEMF_Menu_NoLooseAmmo>
   <CEMF_Mote_SwappingMag>更换弹匣...</CEMF_Mote_SwappingMag>
   <CEMF_Mote_EjectingMag>退下弹匣中...</CEMF_Mote_EjectingMag>
   <CEMF_Mote_FieldPacking>现场压弹中...</CEMF_Mote_FieldPacking>
@@ -97,7 +102,9 @@
   <CEMF_Msg_ThumbInjured>{0} 在压装弹匣时不慎伤到了右手大拇指。</CEMF_Msg_ThumbInjured>
   <CEMF_Gizmo_NextRound>下一发：{0}</CEMF_Gizmo_NextRound>
   <CEMF_Gizmo_SpareMags>备用弹匣：{0} 个可用（共 {1} 发）</CEMF_Gizmo_SpareMags>
+  <CEMF_Gizmo_ManualMagPref>手动弹种延续：{0}</CEMF_Gizmo_ManualMagPref>
   <CEMF_Gizmo_SingleLoadPlan>单发弹仓方案已启用（下一发：{0}）</CEMF_Gizmo_SingleLoadPlan>
+  <CEMF_Gizmo_SingleLoadTemp>单发临时切弹：{0}（脱战压装自动还原方案）</CEMF_Gizmo_SingleLoadTemp>
 
   <!-- Window_MagazineManager -->
   <CEMF_UI_Title>CE 弹匣与混装供弹方案管理</CEMF_UI_Title>
